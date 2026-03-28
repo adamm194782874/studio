@@ -4,10 +4,10 @@ Welcome to **LiftVault**, a high-performance training companion built with Next.
 
 ## 📱 How to use on your Phone
 This is a high-performance Web App. To use it on your phone:
-1. **Deploy**: Click the **GitHub** button in the top toolbar to sync your code.
-2. **Connect**: Go to the [Firebase Console](https://console.firebase.google.com/), select **App Hosting**, and connect your repository.
-3. **Open**: Once deployed, open the provided URL in Safari (iOS) or Chrome (Android).
-4. **Install**: 
+1. **Sync to GitHub**: Click the **GitHub** button in the top toolbar of Firebase Studio to push your code to a repository.
+2. **Deploy with App Hosting**: Go to the [Firebase Console](https://console.firebase.google.com/), navigate to **App Hosting**, and connect your GitHub repository.
+3. **Open on Mobile**: Once the deployment is complete, open the provided URL in Safari (iOS) or Chrome (Android).
+4. **Install to Home Screen**: 
    - **iOS**: Tap the **Share** button and select **"Add to Home Screen"**.
    - **Android**: Tap the **three dots** menu and select **"Install App"** or **"Add to Home Screen"**.
 
@@ -22,9 +22,9 @@ To view your application, look at the **Preview Window** on the right side of yo
 - **Coach AI**: Use the **AI Insights** tab to get personalized training adjustments and technical form tips.
 
 ## 📦 Exporting & Deployment
-1. **Download Source**: Use the **Download** button in the top toolbar of Firebase Studio to export your project as a `.zip` file.
-2. **GitHub Integration**: Connect your project to a GitHub repository to version control your code and collaborate.
-3. **Firebase App Hosting**: This project is pre-configured with `apphosting.yaml`. You can deploy it by connecting your GitHub repo to **Firebase App Hosting** in the Firebase Console for automated builds and deployments.
+1. **GitHub Export**: Click the **GitHub** button in the top toolbar. This will prompt you to connect your GitHub account and create a repository for this project.
+2. **Download Source**: Use the **Download** button in the top toolbar to export your project as a `.zip` file for local development.
+3. **Firebase App Hosting**: This project is pre-configured with `apphosting.yaml`. Deployment is best handled by connecting your GitHub repo to **Firebase App Hosting** in the Firebase Console.
 
 ## 🛠 Tech Stack
 - **Framework**: Next.js 15 (App Router)
