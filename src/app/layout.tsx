@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'LiftVault | Powerlifting Training App',
+  title: 'Baden Barbell | Powerlifting Training App',
   description: 'Track your powerlifting progress, bodyweight, and get AI-powered insights.',
 };
 

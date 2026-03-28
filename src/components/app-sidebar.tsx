@@ -76,7 +76,7 @@ export function AppSidebar() {
             <Dumbbell className="text-background w-5 h-5" />
           </div>
           <span className="font-headline font-bold text-xl group-data-[collapsible=icon]:hidden">
-            LiftVault
+            Baden Barbell
           </span>
         </div>
       </SidebarHeader>

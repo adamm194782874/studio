@@ -1,6 +1,6 @@
-# LiftVault | Powerlifting Training App
+# Baden Barbell | Powerlifting Training App
 
-Welcome to **LiftVault**, a high-performance training companion built with Next.js, Tailwind CSS, and Genkit AI.
+Welcome to **Baden Barbell**, a high-performance training companion built with Next.js, Tailwind CSS, and Genkit AI.
 
 ## 📱 How to use on your Phone
 This is a high-performance Web App. To use it on your phone:
