@@ -8,6 +8,7 @@ import {
   BarChart2,
   Trophy,
   BrainCircuit,
+  Calculator,
 } from "lucide-react"
 
 import {
@@ -32,19 +33,19 @@ const items = [
     icon: LayoutDashboard,
   },
   {
-    title: "Workout Log",
+    title: "Workout Session",
     url: "/workout",
     icon: Dumbbell,
-  },
-  {
-    title: "Bodyweight",
-    url: "/bodyweight",
-    icon: Scale,
   },
   {
     title: "Performance",
     url: "/performance",
     icon: BarChart2,
+  },
+  {
+    title: "Plate Calculator",
+    url: "/plates",
+    icon: Calculator,
   },
   {
     title: "Standards",
