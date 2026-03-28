@@ -48,7 +48,7 @@ export default function Dashboard() {
               <p className="font-bold">184.5 lbs</p>
             </div>
           </div>
-          <button className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2">
+          <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-all shadow-lg flex items-center gap-2">
             <Dumbbell className="w-4 h-4" />
             New Workout
           </button>
@@ -124,16 +124,16 @@ export default function Dashboard() {
                     <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis 
                   dataKey="week" 
-                  stroke="rgba(255,255,255,0.3)" 
+                  stroke="rgba(0,0,0,0.3)" 
                   fontSize={12} 
                   tickLine={false} 
                   axisLine={false}
                 />
                 <YAxis 
-                  stroke="rgba(255,255,255,0.3)" 
+                  stroke="rgba(0,0,0,0.3)" 
                   fontSize={12} 
                   tickLine={false} 
                   axisLine={false}
