@@ -9,6 +9,7 @@ import {
   Trophy,
   BrainCircuit,
   Calculator,
+  CalendarDays,
 } from "lucide-react"
 
 import {
@@ -31,6 +32,11 @@ const items = [
     title: "Dashboard",
     url: "/",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Training Program",
+    url: "/program",
+    icon: CalendarDays,
   },
   {
     title: "Workout Session",
