@@ -1,15 +1,21 @@
 "use client"
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   CalendarDays, 
   TrendingUp, 
   Dumbbell, 
-  Info,
-  CheckCircle2,
-  Clock
+  Plus, 
+  Trash2, 
+  Calculator,
+  Save,
+  Info
 } from 'lucide-react';
 import {
   LineChart,
@@ -17,62 +23,150 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
+type LiftType = 'squat' | 'bench' | 'deadlift' | 'custom';
+
+interface ProgramExercise {
+  id: string;
+  name: string;
+  sets: string;
+  reps: string;
+  percentage: string;
+  refLift: LiftType;
+  customMax?: string;
+}
+
+interface DayProgram {
+  title: string;
+  exercises: ProgramExercise[];
+}
+
 const progressionData = [
-  { week: 'Week 1', intensity: 70, volume: 8000 },
-  { week: 'Week 2', intensity: 75, volume: 8500 },
-  { week: 'Week 3', intensity: 80, volume: 9000 },
-  { week: 'Week 4', intensity: 85, volume: 9500 },
-  { week: 'Week 5', intensity: 90, volume: 7000 }, // Peak
-  { week: 'Week 6', intensity: 60, volume: 5000 }, // Deload
+  { week: 'Week 1', intensity: 70 },
+  { week: 'Week 2', intensity: 75 },
+  { week: 'Week 3', intensity: 80 },
+  { week: 'Week 4', intensity: 85 },
+  { week: 'Week 5', intensity: 90 },
+  { week: 'Week 6', intensity: 60 },
 ];
 
-const program = {
-  day1: {
-    title: "Day 1: Squat & Bench Intensity",
-    exercises: [
-      { name: "Competition Squat", sets: "3", reps: "5", intensity: "75% 1RM" },
-      { name: "Competition Bench", sets: "3", reps: "5", intensity: "75% 1RM" },
-      { name: "RDL", sets: "3", reps: "8-10", intensity: "Moderate" },
-      { name: "Pull-ups", sets: "3", reps: "AMRAP", intensity: "Bodyweight" },
-    ]
-  },
-  day2: {
-    title: "Day 2: Deadlift & Accessory",
-    exercises: [
-      { name: "Competition Deadlift", sets: "3", reps: "3", intensity: "80% 1RM" },
-      { name: "Overhead Press", sets: "3", reps: "8", intensity: "Moderate" },
-      { name: "Barbell Rows", sets: "4", reps: "10", intensity: "Heavy" },
-      { name: "Face Pulls", sets: "3", reps: "15", intensity: "Light" },
-    ]
-  },
-  day3: {
-    title: "Day 3: Squat & Bench Volume",
-    exercises: [
-      { name: "Pause Squat", sets: "4", reps: "6", intensity: "65% 1RM" },
-      { name: "Spoto Press", sets: "4", reps: "6", intensity: "65% 1RM" },
-      { name: "Leg Press", sets: "3", reps: "12", intensity: "Moderate" },
-      { name: "Dips", sets: "3", reps: "10-12", intensity: "Bodyweight" },
-    ]
-  }
-};
-
 export default function ProgrammingPage() {
+  const [prs, setPrs] = useState({
+    squat: '265',
+    bench: '180',
+    deadlift: '330'
+  });
+
+  const [program, setProgram] = useState<Record<string, DayProgram>>({
+    day1: {
+      title: "Day 1: Intensity",
+      exercises: [
+        { id: '1', name: 'Competition Squat', sets: '3', reps: '5', percentage: '75', refLift: 'squat' },
+        { id: '2', name: 'Competition Bench', sets: '3', reps: '5', percentage: '75', refLift: 'bench' },
+      ]
+    },
+    day2: {
+      title: "Day 2: Deadlift Focus",
+      exercises: [
+        { id: '3', name: 'Competition Deadlift', sets: '3', reps: '3', percentage: '80', refLift: 'deadlift' },
+      ]
+    },
+    day3: {
+      title: "Day 3: Volume",
+      exercises: [
+        { id: '4', name: 'Pause Squat', sets: '4', reps: '6', percentage: '65', refLift: 'squat' },
+        { id: '5', name: 'Spoto Press', sets: '4', reps: '6', percentage: '65', refLift: 'bench' },
+      ]
+    }
+  });
+
+  const addExercise = (day: string) => {
+    const newEx: ProgramExercise = {
+      id: Date.now().toString(),
+      name: 'New Exercise',
+      sets: '3',
+      reps: '8',
+      percentage: '70',
+      refLift: 'squat'
+    };
+    setProgram({
+      ...program,
+      [day]: { ...program[day], exercises: [...program[day].exercises, newEx] }
+    });
+  };
+
+  const removeExercise = (day: string, id: string) => {
+    setProgram({
+      ...program,
+      [day]: { ...program[day], exercises: program[day].exercises.filter(ex => ex.id !== id) }
+    });
+  };
+
+  const updateExercise = (day: string, id: string, field: keyof ProgramExercise, value: string) => {
+    setProgram({
+      ...program,
+      [day]: {
+        ...program[day],
+        exercises: program[day].exercises.map(ex => ex.id === id ? { ...ex, [field]: value } : ex)
+      }
+    });
+  };
+
+  const calculateWeight = (ex: ProgramExercise) => {
+    const max = ex.refLift === 'custom' 
+      ? parseFloat(ex.customMax || '0') 
+      : parseFloat(prs[ex.refLift as keyof typeof prs] || '0');
+    const pct = parseFloat(ex.percentage) / 100;
+    const weight = max * pct;
+    return isNaN(weight) ? 0 : Math.round(weight / 5) * 5; // Round to nearest 5lbs
+  };
+
   return (
     <div className="p-6 md:p-10 space-y-8 max-w-7xl mx-auto">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-          <CalendarDays className="text-primary w-6 h-6" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+            <CalendarDays className="text-primary w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-headline font-bold">Custom Programming</h1>
+            <p className="text-muted-foreground">Build your 3-day split with automated 1RM calculations</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-headline font-bold">Training Program</h1>
-          <p className="text-muted-foreground">Standard 3-Day Powerlifting Split (Linear Periodization)</p>
-        </div>
+        <Button className="bg-accent text-background hover:bg-accent/90">
+          <Save className="w-4 h-4 mr-2" />
+          Save Program
+        </Button>
       </div>
+
+      {/* PR Input Section */}
+      <Card className="border-none bg-secondary/20">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-accent" />
+            Reference 1-Rep Maxes
+          </CardTitle>
+          <CardDescription>Enter your maxes to automatically calculate target weights</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {(['squat', 'bench', 'deadlift'] as const).map((lift) => (
+              <div key={lift} className="space-y-2">
+                <Label htmlFor={lift} className="capitalize">{lift} 1RM (lbs)</Label>
+                <Input 
+                  id={lift}
+                  type="number"
+                  value={prs[lift]}
+                  onChange={(e) => setPrs({...prs, [lift]: e.target.value})}
+                  className="bg-background border-none text-lg font-bold"
+                />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Progression Overview */}
@@ -80,14 +174,12 @@ export default function ProgrammingPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-accent" />
-              6-Week Intensity Projection
+              Cycle Intensity Projection
             </CardTitle>
-            <CardDescription>Planned percentage of 1RM per week</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[250px]">
             <ChartContainer config={{
-              intensity: { label: "Intensity (%)", color: "hsl(var(--accent))" },
-              volume: { label: "Volume (lbs)", color: "hsl(var(--chart-2))" }
+              intensity: { label: "Intensity (%)", color: "hsl(var(--accent))" }
             }}>
               <LineChart data={progressionData}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.1} />
@@ -106,31 +198,19 @@ export default function ProgrammingPage() {
           </CardContent>
         </Card>
 
-        {/* Program Highlights */}
+        {/* Info Card */}
         <Card className="border-none bg-accent/5">
           <CardHeader>
-            <CardTitle className="text-lg">Cycle Goals</CardTitle>
+            <CardTitle className="text-lg">Programming Tips</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-3">
-              <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
-              <p className="text-sm">Increase main lift intensity by 2.5% weekly.</p>
+            <div className="flex gap-3 text-sm text-muted-foreground">
+              <Info className="w-5 h-5 text-accent shrink-0" />
+              <p>Percentages usually range from 65% (volume) to 90%+ (peaking).</p>
             </div>
-            <div className="flex gap-3">
-              <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
-              <p className="text-sm">Build work capacity through Day 3 volume sessions.</p>
-            </div>
-            <div className="flex gap-3">
-              <Clock className="w-5 h-5 text-accent shrink-0" />
-              <p className="text-sm">Mandatory Week 6 deload to prevent CNS fatigue.</p>
-            </div>
-            <div className="mt-6 p-4 bg-background rounded-lg border border-accent/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Info className="w-4 h-4 text-accent" />
-                <span className="text-xs font-bold uppercase tracking-wider">Note</span>
-              </div>
-              <p className="text-xs text-muted-foreground italic">
-                Percentages are based on your current PRs logged in the Dashboard.
+            <div className="p-4 bg-background rounded-lg border border-accent/20">
+              <p className="text-xs italic">
+                The calculated weight rounds to the nearest 5lbs for standard equipment.
               </p>
             </div>
           </CardContent>
@@ -139,41 +219,130 @@ export default function ProgrammingPage() {
         {/* Workout Split Tabs */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="day1" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8 h-14 bg-secondary/50">
-              <TabsTrigger value="day1" className="text-base font-bold">Monday</TabsTrigger>
-              <TabsTrigger value="day2" className="text-base font-bold">Wednesday</TabsTrigger>
-              <TabsTrigger value="day3" className="text-base font-bold">Friday</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-8 h-14 bg-secondary/50 p-1">
+              <TabsTrigger value="day1" className="text-base font-bold">Session A</TabsTrigger>
+              <TabsTrigger value="day2" className="text-base font-bold">Session B</TabsTrigger>
+              <TabsTrigger value="day3" className="text-base font-bold">Session C</TabsTrigger>
             </TabsList>
 
             {(Object.keys(program) as Array<keyof typeof program>).map((dayKey) => (
               <TabsContent key={dayKey} value={dayKey} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <Card className="border-none bg-card/40">
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-headline text-primary">{program[dayKey].title}</CardTitle>
-                    <CardDescription>Primary session focus</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {program[dayKey].exercises.map((ex, i) => (
-                        <div key={i} className="flex items-center justify-between p-6 bg-secondary/30 rounded-2xl border border-white/5 hover:bg-secondary/50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Dumbbell className="w-5 h-5 text-primary" />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <Input 
+                      value={program[dayKey].title}
+                      onChange={(e) => setProgram({...program, [dayKey]: {...program[dayKey], title: e.target.value}})}
+                      className="bg-transparent border-none text-2xl font-headline font-bold p-0 w-auto focus-visible:ring-0"
+                    />
+                    <Button onClick={() => addExercise(dayKey)} variant="outline" size="sm" className="border-accent text-accent">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Exercise
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {program[dayKey].exercises.map((ex) => (
+                      <Card key={ex.id} className="border-none bg-card/40 hover:bg-card/60 transition-colors">
+                        <CardContent className="p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                            {/* Exercise Name */}
+                            <div className="md:col-span-3 space-y-2">
+                              <Label className="text-xs uppercase font-bold text-muted-foreground">Exercise</Label>
+                              <Input 
+                                value={ex.name} 
+                                onChange={(e) => updateExercise(dayKey, ex.id, 'name', e.target.value)}
+                                className="bg-secondary/50 border-none font-bold"
+                              />
                             </div>
-                            <div>
-                              <p className="font-bold text-lg">{ex.name}</p>
-                              <p className="text-sm text-muted-foreground">{ex.sets} sets x {ex.reps} reps</p>
+
+                            {/* Sets/Reps */}
+                            <div className="md:col-span-2 grid grid-cols-2 gap-2">
+                              <div className="space-y-2">
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Sets</Label>
+                                <Input 
+                                  value={ex.sets} 
+                                  onChange={(e) => updateExercise(dayKey, ex.id, 'sets', e.target.value)}
+                                  className="bg-secondary/50 border-none text-center font-mono"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Reps</Label>
+                                <Input 
+                                  value={ex.reps} 
+                                  onChange={(e) => updateExercise(dayKey, ex.id, 'reps', e.target.value)}
+                                  className="bg-secondary/50 border-none text-center font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Reference & % */}
+                            <div className="md:col-span-3 grid grid-cols-2 gap-2">
+                              <div className="space-y-2">
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Basis</Label>
+                                <Select 
+                                  value={ex.refLift} 
+                                  onValueChange={(val) => updateExercise(dayKey, ex.id, 'refLift', val)}
+                                >
+                                  <SelectTrigger className="bg-secondary/50 border-none">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="squat">Squat</SelectItem>
+                                    <SelectItem value="bench">Bench</SelectItem>
+                                    <SelectItem value="deadlift">Deadlift</SelectItem>
+                                    <SelectItem value="custom">Custom</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs uppercase font-bold text-muted-foreground">Target %</Label>
+                                <div className="relative">
+                                  <Input 
+                                    value={ex.percentage} 
+                                    onChange={(e) => updateExercise(dayKey, ex.id, 'percentage', e.target.value)}
+                                    className="bg-secondary/50 border-none text-center font-mono pr-6"
+                                  />
+                                  <span className="absolute right-2 top-2 text-xs text-muted-foreground">%</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Result Weight */}
+                            <div className="md:col-span-3 space-y-2">
+                              {ex.refLift === 'custom' && (
+                                <div className="mb-2">
+                                  <Label className="text-xs uppercase font-bold text-muted-foreground">Custom Max</Label>
+                                  <Input 
+                                    value={ex.customMax || ''} 
+                                    placeholder="Enter max"
+                                    onChange={(e) => updateExercise(dayKey, ex.id, 'customMax', e.target.value)}
+                                    className="bg-secondary/50 border-none h-8 text-xs"
+                                  />
+                                </div>
+                              )}
+                              <div className="p-3 bg-accent/10 rounded-lg text-center border border-accent/20">
+                                <p className="text-[10px] uppercase font-bold text-accent mb-1">Target Weight</p>
+                                <p className="text-xl font-headline font-bold text-accent">{calculateWeight(ex)} lbs</p>
+                              </div>
+                            </div>
+
+                            {/* Delete */}
+                            <div className="md:col-span-1 flex justify-end">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => removeExercise(dayKey, ex.id)}
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground uppercase font-bold">Target</p>
-                            <p className="font-mono text-accent font-bold">{ex.intensity}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               </TabsContent>
             ))}
           </Tabs>
