@@ -25,6 +25,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { WeightUnit } from '@/lib/workout-utils';
 
 type LiftType = 'squat' | 'bench' | 'deadlift' | 'custom';
 
@@ -53,6 +54,7 @@ const progressionData = [
 ];
 
 export default function ProgrammingPage() {
+  const [unit, setUnit] = useState<WeightUnit>('lbs');
   const [prs, setPrs] = useState({
     squat: '265',
     bench: '180',
@@ -120,7 +122,11 @@ export default function ProgrammingPage() {
       : parseFloat(prs[ex.refLift as keyof typeof prs] || '0');
     const pct = parseFloat(ex.percentage) / 100;
     const weight = max * pct;
-    return isNaN(weight) ? 0 : Math.round(weight / 5) * 5; // Round to nearest 5lbs
+    if (isNaN(weight)) return 0;
+    
+    // Round to nearest logical jump
+    const jump = unit === 'kg' ? 2.5 : 5;
+    return Math.round(weight / jump) * jump;
   };
 
   return (
@@ -135,18 +141,28 @@ export default function ProgrammingPage() {
             <p className="text-muted-foreground">Build your 3-day split with automated 1RM calculations</p>
           </div>
         </div>
-        <Button className="bg-accent text-background hover:bg-accent/90">
-          <Save className="w-4 h-4 mr-2" />
-          Save Program
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select value={unit} onValueChange={(v) => setUnit(v as WeightUnit)}>
+            <SelectTrigger className="w-24 bg-secondary border-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lbs">LBS</SelectItem>
+              <SelectItem value="kg">KG</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button className="bg-accent text-background hover:bg-accent/90">
+            <Save className="w-4 h-4 mr-2" />
+            Save Program
+          </Button>
+        </div>
       </div>
 
-      {/* PR Input Section */}
       <Card className="border-none bg-secondary/20">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <Calculator className="w-5 h-5 text-accent" />
-            Reference 1-Rep Maxes
+            Reference 1-Rep Maxes ({unit})
           </CardTitle>
           <CardDescription>Enter your maxes to automatically calculate target weights</CardDescription>
         </CardHeader>
@@ -154,7 +170,7 @@ export default function ProgrammingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(['squat', 'bench', 'deadlift'] as const).map((lift) => (
               <div key={lift} className="space-y-2">
-                <Label htmlFor={lift} className="capitalize">{lift} 1RM (lbs)</Label>
+                <Label htmlFor={lift} className="capitalize">{lift} 1RM ({unit})</Label>
                 <Input 
                   id={lift}
                   type="number"
@@ -169,7 +185,6 @@ export default function ProgrammingPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Progression Overview */}
         <Card className="lg:col-span-2 border-none bg-card/40">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -198,7 +213,6 @@ export default function ProgrammingPage() {
           </CardContent>
         </Card>
 
-        {/* Info Card */}
         <Card className="border-none bg-accent/5">
           <CardHeader>
             <CardTitle className="text-lg">Programming Tips</CardTitle>
@@ -210,13 +224,12 @@ export default function ProgrammingPage() {
             </div>
             <div className="p-4 bg-background rounded-lg border border-accent/20">
               <p className="text-xs italic">
-                The calculated weight rounds to the nearest 5lbs for standard equipment.
+                Calculated weights round to the nearest {unit === 'kg' ? '2.5kg' : '5lbs'}.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Workout Split Tabs */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="day1" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8 h-14 bg-secondary/50 p-1">
@@ -245,7 +258,6 @@ export default function ProgrammingPage() {
                       <Card key={ex.id} className="border-none bg-card/40 hover:bg-card/60 transition-colors">
                         <CardContent className="p-6">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-                            {/* Exercise Name */}
                             <div className="md:col-span-3 space-y-2">
                               <Label className="text-xs uppercase font-bold text-muted-foreground">Exercise</Label>
                               <Input 
@@ -255,7 +267,6 @@ export default function ProgrammingPage() {
                               />
                             </div>
 
-                            {/* Sets/Reps */}
                             <div className="md:col-span-2 grid grid-cols-2 gap-2">
                               <div className="space-y-2">
                                 <Label className="text-xs uppercase font-bold text-muted-foreground">Sets</Label>
@@ -275,7 +286,6 @@ export default function ProgrammingPage() {
                               </div>
                             </div>
 
-                            {/* Reference & % */}
                             <div className="md:col-span-3 grid grid-cols-2 gap-2">
                               <div className="space-y-2">
                                 <Label className="text-xs uppercase font-bold text-muted-foreground">Basis</Label>
@@ -307,11 +317,10 @@ export default function ProgrammingPage() {
                               </div>
                             </div>
 
-                            {/* Result Weight */}
                             <div className="md:col-span-3 space-y-2">
                               {ex.refLift === 'custom' && (
                                 <div className="mb-2">
-                                  <Label className="text-xs uppercase font-bold text-muted-foreground">Custom Max</Label>
+                                  <Label className="text-xs uppercase font-bold text-muted-foreground">Custom Max ({unit})</Label>
                                   <Input 
                                     value={ex.customMax || ''} 
                                     placeholder="Enter max"
@@ -322,11 +331,10 @@ export default function ProgrammingPage() {
                               )}
                               <div className="p-3 bg-accent/10 rounded-lg text-center border border-accent/20">
                                 <p className="text-[10px] uppercase font-bold text-accent mb-1">Target Weight</p>
-                                <p className="text-xl font-headline font-bold text-accent">{calculateWeight(ex)} lbs</p>
+                                <p className="text-xl font-headline font-bold text-accent">{calculateWeight(ex)} {unit}</p>
                               </div>
                             </div>
 
-                            {/* Delete */}
                             <div className="md:col-span-1 flex justify-end">
                               <Button 
                                 variant="ghost" 
