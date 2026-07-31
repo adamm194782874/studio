@@ -14,23 +14,23 @@ const ReceivePersonalizedTrainingInsightsInputSchema = z.object({
   historicalTrainingDataSummary: z
     .string()
     .describe(
-      'A summary string of the user\'s historical training data, including exercises, weights, reps, sets, and dates. Example: "User\'s recent squat max is 300 lbs (5 reps), bench max is 200 lbs (3 reps), deadlift max is 400 lbs (1 rep). Training volume for squat has increased by 10% over the last month."
+      'A summary string of the user\'s historical training data, including exercises, weights, reps, sets, and dates. Example: "User\'s recent squat max is 300 lbs (5 reps), bench max is 200 lbs (3 reps), deadlift max is 400 lbs (1 rep). Training volume for squat has increased by 10% over the last month."'
     ),
   bodyweightHistorySummary: z
     .string()
     .describe(
-      'A summary string of the user\'s bodyweight history. Example: "User\'s bodyweight has been stable at 180 lbs for the last 3 months, with a slight decrease of 2 lbs last week."
+      'A summary string of the user\'s bodyweight history. Example: "User\'s bodyweight has been stable at 180 lbs for the last 3 months, with a slight decrease of 2 lbs last week."'
     ),
   powerliftingStandardsComparison: z
     .string()
     .describe(
-      'A summary string comparing the user\'s performance to Open Powerlifting standards for their age, weight class, and experience level. Example: "User\'s squat is at an Intermediate level, bench at Novice-Intermediate, and deadlift at Advanced for their weight class and experience."
+      'A summary string comparing the user\'s performance to Open Powerlifting standards for their age, weight class, and experience level. Example: "User\'s squat is at an Intermediate level, bench at Novice-Intermediate, and deadlift at Advanced for their weight class and experience."'
     ),
   userGoals: z
     .string()
     .optional()
     .describe(
-      'Optional. The user\'s current powerlifting goals. Example: "User aims to increase squat by 20 lbs in 8 weeks and improve bench press stability."
+      'Optional. The user\'s current powerlifting goals. Example: "User aims to increase squat by 20 lbs in 8 weeks and improve bench press stability."'
     ),
 });
 export type ReceivePersonalizedTrainingInsightsInput = z.infer<

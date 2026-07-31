@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BrainCircuit, Sparkles, Loader2, AlertCircle, Quote } from 'lucide-react';
 import { receivePersonalizedTrainingInsights, type ReceivePersonalizedTrainingInsightsOutput } from '@/ai/flows/receive-personalized-training-insights';

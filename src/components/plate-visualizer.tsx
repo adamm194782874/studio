@@ -11,21 +11,15 @@ interface PlateVisualizerProps {
   className?: string;
 }
 
-const plateColors: Record<number, string> = {
-  // LBS
+const lbsPlateColors: Record<number, string> = {
   45: 'bg-red-600',
   35: 'bg-blue-600',
   25: 'bg-yellow-500',
   10: 'bg-green-600',
   5: 'bg-white text-black',
   2.5: 'bg-gray-400 text-black',
-  // KG (Competition standards)
-  20: 'bg-blue-600',
-  15: 'bg-yellow-500',
-  1.25: 'bg-gray-300 text-black',
 };
 
-// Override specifically for KG 25 if needed (both share values but KG 25 is red)
 const getPlateColor = (p: number, unit: WeightUnit) => {
   if (unit === 'kg') {
     if (p === 25) return 'bg-red-600';
@@ -36,7 +30,7 @@ const getPlateColor = (p: number, unit: WeightUnit) => {
     if (p === 2.5) return 'bg-black text-white';
     if (p === 1.25) return 'bg-gray-300 text-black';
   }
-  return plateColors[p] || 'bg-gray-200';
+  return lbsPlateColors[p] || 'bg-gray-200';
 };
 
 const plateHeights: Record<number, string> = {

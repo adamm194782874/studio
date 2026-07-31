@@ -3,22 +3,16 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PlateVisualizer } from '@/components/plate-visualizer';
-import { 
-  TrendingUp, 
-  Dumbbell, 
-  Calendar, 
-  Scale, 
+import {
+  Dumbbell,
+  Scale,
   ChevronRight,
   ArrowUpRight
 } from 'lucide-react';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   AreaChart,
   Area
 } from 'recharts';
