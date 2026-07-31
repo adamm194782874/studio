@@ -4,7 +4,6 @@ import * as React from "react"
 import {
   LayoutDashboard,
   Dumbbell,
-  Scale,
   BarChart2,
   Trophy,
   BrainCircuit,
