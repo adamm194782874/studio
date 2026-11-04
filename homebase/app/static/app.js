@@ -2,6 +2,26 @@ const $ = (id) => document.getElementById(id);
 let me = null;
 let billFilter = "unpaid";
 
+const ICONS = {
+  home: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  file: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+  check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  checkBig: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  undo: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>',
+  x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  bill: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6"/></svg>',
+  cal: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  heart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.5-9.2C1 8 3.4 4 7.2 4c2 0 3.6 1.1 4.8 2.7C13.2 5.1 14.8 4 16.8 4 20.6 4 23 8 21.5 11.8 19.5 16.4 12 21 12 21z"/></svg>',
+};
+
+const SUGGESTIONS = [
+  { text: "What bills are due in the next two weeks?", icon: "bill", color: "amber" },
+  { text: "What's on our calendar this weekend?", icon: "cal", color: "green" },
+  { text: "Find our car insurance policy", icon: "search", color: "blue" },
+  { text: "Find a free evening next week for date night", icon: "heart", color: "pink" },
+];
+
 async function api(path, opts = {}) {
   const r = await fetch(path, {
     ...opts,
@@ -50,18 +70,19 @@ function md(text) {
 function scrollDown() { const m = $("main"); m.scrollTop = m.scrollHeight; }
 
 function addMessage(role, content, extras = {}) {
-  const empty = document.querySelector("#messages .empty");
-  if (empty) empty.remove();
+  const hero = document.querySelector("#messages .hero");
+  if (hero) hero.remove();
   const wrap = document.createElement("div");
   wrap.className = `msg ${role}`;
+  if (role !== "user") wrap.innerHTML = `<div class="avatar">${ICONS.home}</div>`;
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   if (role === "user") bubble.textContent = content;
   else bubble.innerHTML = md(content);
   const chips = [];
-  for (const a of extras.actions || []) chips.push(`<span class="chip action">✓ ${esc(a)}</span>`);
+  for (const a of extras.actions || []) chips.push(`<span class="chip action">${ICONS.check} ${esc(a)}</span>`);
   for (const s of extras.sources || []) {
-    chips.push(`<a class="chip" target="_blank" title="${esc(s.path)}" href="/files/download?path=${encodeURIComponent(s.path)}">📄 ${esc(s.name)}</a>`);
+    chips.push(`<a class="chip file" target="_blank" title="${esc(s.path)}" href="/files/download?path=${encodeURIComponent(s.path)}">${ICONS.file} ${esc(s.name)}</a>`);
   }
   if (chips.length) bubble.insertAdjacentHTML("beforeend", `<div class="chips">${chips.join("")}</div>`);
   wrap.appendChild(bubble);
@@ -70,20 +91,23 @@ function addMessage(role, content, extras = {}) {
   return bubble;
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
 function showEmpty() {
   const first = me?.user?.display_name || "there";
   $("messages").innerHTML = `
-    <div class="empty">
-      <p>Hi ${esc(first)}. What can I help with?</p>
+    <div class="hero">
+      <h2>${greeting()},<br><span class="grad-text">${esc(first)}</span></h2>
+      <p>Ask me about files on the NAS, your calendars, or bills.</p>
       <div class="suggest">
-        <button>What bills are due in the next two weeks?</button>
-        <button>What's on our calendar this weekend?</button>
-        <button>Find our car insurance policy</button>
-        <button>Find a free evening next week for date night</button>
+        ${SUGGESTIONS.map((s) => `<button class="c-${s.color}"><span class="ic">${ICONS[s.icon]}</span>${esc(s.text)}</button>`).join("")}
       </div>
     </div>`;
   document.querySelectorAll(".suggest button").forEach((b) => {
-    b.onclick = () => { $("input").value = b.textContent; send(); };
+    b.onclick = () => { $("input").value = b.textContent.trim(); send(); };
   });
 }
 
@@ -103,14 +127,14 @@ async function send(e) {
   autosize();
   addMessage("user", text);
   const pending = addMessage("assistant", "");
-  pending.innerHTML = '<span class="thinking">Thinking...</span>';
+  pending.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
   $("send").disabled = true;
   try {
     const res = await api("/api/chat", { method: "POST", body: JSON.stringify({ message: text }) });
     pending.parentElement.remove();
     addMessage("assistant", res.reply, res);
   } catch (err) {
-    pending.innerHTML = `<span class="overdue">${esc(err.message)}</span>`;
+    pending.innerHTML = `<span class="err">${esc(err.message)}</span>`;
   } finally {
     $("send").disabled = false;
     $("input").focus();
@@ -126,7 +150,7 @@ function autosize() {
 // ---------------------------------------------------------------- views
 
 function switchView(name) {
-  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+  document.querySelectorAll(".tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   $("composer").style.display = name === "chat" ? "" : "none";
   if (name === "bills") loadBills();
@@ -137,36 +161,68 @@ function switchView(name) {
 
 // ---------------------------------------------------------------- bills
 
-function money(b) {
-  if (b.amount == null) return "?";
+function money(amount, currency) {
+  if (amount == null) return "?";
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: b.currency || "USD" }).format(b.amount);
-  } catch { return `${b.amount} ${b.currency || ""}`; }
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" }).format(amount);
+  } catch { return `${amount} ${currency || ""}`; }
+}
+
+function daysUntil(iso) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(iso + "T00:00:00");
+  return Math.round((d - today) / 86400000);
+}
+
+function niceDate(iso) {
+  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function billState(b) {
+  if (b.status === "paid") return { cls: "paid", pill: '<span class="pill gray">Paid</span>' };
+  if (!b.due_date) return { cls: "", pill: '<span class="pill gray">No due date</span>' };
+  const n = daysUntil(b.due_date);
+  if (n < 0) return { cls: "overdue", pill: `<span class="pill red">Overdue ${-n} day${n === -1 ? "" : "s"}</span>` };
+  if (n === 0) return { cls: "soon", pill: '<span class="pill amber">Due today</span>' };
+  if (n <= 7) return { cls: "soon", pill: `<span class="pill amber">Due in ${n} day${n === 1 ? "" : "s"}</span>` };
+  return { cls: "", pill: `<span class="pill green">Due ${niceDate(b.due_date)}</span>` };
+}
+
+async function loadStats() {
+  const { bills } = await api("/api/bills?status=unpaid");
+  const cur = bills.find((b) => b.currency)?.currency || "USD";
+  const total = bills.reduce((s, b) => s + (b.amount || 0), 0);
+  const overdue = bills.filter((b) => b.due_date && daysUntil(b.due_date) < 0).length;
+  const week = bills.filter((b) => b.due_date && daysUntil(b.due_date) >= 0 && daysUntil(b.due_date) <= 7).length;
+  $("billStats").innerHTML = `
+    <div class="stat s1"><div class="n">${esc(money(total, cur))}</div><div class="l">Unpaid total</div></div>
+    <div class="stat s2"><div class="n">${overdue}</div><div class="l">Overdue</div></div>
+    <div class="stat s3"><div class="n">${week}</div><div class="l">Due this week</div></div>`;
 }
 
 async function loadBills() {
-  document.querySelectorAll("[data-bills]").forEach((b) => b.classList.toggle("ghost", b.dataset.bills !== billFilter));
+  document.querySelectorAll("[data-bills]").forEach((b) => b.classList.toggle("on", b.dataset.bills === billFilter));
+  loadStats();
   const { bills } = await api(`/api/bills?status=${billFilter}`);
-  const today = new Date().toISOString().slice(0, 10);
   if (!bills.length) {
-    $("billList").innerHTML = `<p class="muted">No ${billFilter === "all" ? "" : billFilter + " "}bills. Tap "Check my email" to look for new ones.</p>`;
+    $("billList").innerHTML = `<div class="empty-state"><div class="big">🎉</div>
+      <p>No ${billFilter === "all" ? "" : billFilter + " "}bills here.<br>Tap <strong>Check email</strong> to look for new ones.</p></div>`;
     return;
   }
   $("billList").innerHTML = bills.map((b) => {
-    const overdue = b.status === "unpaid" && b.due_date && b.due_date < today;
-    const due = b.due_date ? `Due ${b.due_date}` : "No due date";
+    const st = billState(b);
     const btn = b.status === "unpaid"
-      ? `<button class="btn small" data-act="paid" data-id="${b.id}">Paid</button>`
-      : `<button class="btn small ghost" data-act="unpaid" data-id="${b.id}">Undo</button>`;
-    return `<div class="bill">
+      ? `<button class="icon-btn check" data-act="paid" data-id="${b.id}" title="Mark paid">${ICONS.checkBig}</button>`
+      : `<button class="icon-btn" data-act="unpaid" data-id="${b.id}" title="Mark unpaid">${ICONS.undo}</button>`;
+    return `<div class="bill ${st.cls}">
       <div class="info">
-        <div class="payee">${esc(b.payee)}${b.autopay ? ' <span class="muted">(autopay)</span>' : ""}</div>
-        <div class="muted ${overdue ? "overdue" : ""}">${overdue ? "Overdue, " : ""}${esc(due)}${b.found_by ? " · " + esc(b.found_by) : ""}</div>
-        ${b.subject ? `<div class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.subject)}</div>` : ""}
+        <div class="payee">${esc(b.payee)}</div>
+        <div class="pills">${st.pill}${b.autopay ? '<span class="pill violet">Autopay</span>' : ""}</div>
+        <div class="sub">${b.found_by ? "From " + esc(b.found_by) + "'s email" : ""}${b.subject ? " · " + esc(b.subject) : ""}</div>
       </div>
-      <div class="amount">${esc(money(b))}</div>
+      <div class="amount">${esc(money(b.amount, b.currency))}</div>
       ${btn}
-      <button class="btn small ghost" data-act="delete" data-id="${b.id}" title="Remove">✕</button>
+      <button class="icon-btn" data-act="delete" data-id="${b.id}" title="Remove">${ICONS.x}</button>
     </div>`;
   }).join("");
   $("billList").querySelectorAll("[data-act]").forEach((el) => {
@@ -180,60 +236,76 @@ async function loadBills() {
 
 async function scanBills() {
   const btn = $("scanBills");
+  const label = btn.querySelector("span");
   btn.disabled = true;
-  btn.textContent = "Checking...";
+  label.textContent = "Checking...";
   try {
     const res = await api("/api/bills-scan", { method: "POST" });
-    btn.textContent = `Found ${res.new_bills.length} new`;
+    label.textContent = `Found ${res.new_bills.length} new`;
     loadBills();
   } catch (err) {
     alert(err.message);
-    btn.textContent = "Check my email";
+    label.textContent = "Check email";
   } finally {
     btn.disabled = false;
-    setTimeout(() => { btn.textContent = "Check my email"; }, 4000);
+    setTimeout(() => { label.textContent = "Check email"; }, 4000);
   }
 }
 
-// ---------------------------------------------------------------- settings
+// ---------------------------------------------------------------- status and settings
+
+async function loadStatus() {
+  try {
+    const s = await api("/api/status");
+    const o = s.ollama;
+    $("aiDot").className = `dot ${o.ok ? "ok" : "bad"}`;
+    $("aiText").textContent = o.ok ? "AI online" : "AI offline (is the PC on?)";
+    return s;
+  } catch {
+    $("aiDot").className = "dot bad";
+    $("aiText").textContent = "AI offline";
+    return null;
+  }
+}
 
 async function loadSettings() {
   me = await api("/api/me");
-  $("whoami").textContent = `Signed in as ${me.user.display_name} (${me.user.username}).`;
+  $("whoami").textContent = `Signed in as ${me.user.display_name} (${me.user.username})`;
   const gb = $("googleButtons");
   if (!me.google_configured) {
-    $("googleStatus").textContent = "Google isn't set up yet. See the README: add google_client_secret.json to the data folder.";
+    $("googleStatus").textContent = "Not set up yet. See the README: add google_client_secret.json to the data folder.";
     gb.innerHTML = "";
   } else if (me.google_email) {
-    $("googleStatus").textContent = `Connected as ${me.google_email}.`;
+    $("googleStatus").textContent = `Connected as ${me.google_email}`;
     gb.innerHTML = `<a class="btn small ghost" href="/auth/google/start">Reconnect</a>
                     <button class="btn small ghost" id="gDisconnect">Disconnect</button>`;
     $("gDisconnect").onclick = async () => { await api("/api/google/disconnect", { method: "POST" }); loadSettings(); };
   } else {
-    $("googleStatus").textContent = "Not connected. Connect to use your calendar and email.";
+    $("googleStatus").textContent = "Connect to use your calendar and email.";
     gb.innerHTML = `<a class="btn small" href="/auth/google/start">Connect Google</a>`;
   }
-  $("householdList").innerHTML = me.household.map((m) =>
-    `<div>${esc(m.display_name)}: ${m.google_email ? "Google connected" : "Google not connected"}</div>`).join("");
+  $("householdList").innerHTML = me.household.map((m) => `
+    <div class="member">
+      <div class="av">${esc((m.display_name || "?")[0].toUpperCase())}</div>
+      <div><div style="font-weight:700">${esc(m.display_name)}</div>
+      <div class="muted">${m.google_email ? esc(m.google_email) : "Google not connected"}</div></div>
+    </div>`).join("");
 
-  try {
-    const s = await api("/api/status");
-    const o = s.ollama;
-    $("ollamaStatus").innerHTML = `<span class="dot ${o.ok ? "ok" : "bad"}"></span> ${esc(o.model)} at ${esc(o.url)}` +
-      (o.error ? `<br><span class="overdue">${esc(o.error)}</span>` : "");
-    const i = s.index;
-    $("indexStatus").textContent = i.running
-      ? `Indexing now... ${i.scanned} files looked at, ${i.updated} updated.`
-      : `${i.files.toLocaleString()} files indexed from ${i.roots.join(", ")}. Last run: ${i.last_index || "never"}.` +
-        (i.error ? ` Last error: ${i.error}` : "");
-  } catch (err) {
-    $("ollamaStatus").textContent = err.message;
-  }
+  const s = await loadStatus();
+  if (!s) { $("ollamaStatus").textContent = "Couldn't check."; return; }
+  const o = s.ollama;
+  $("ollamaStatus").innerHTML = `<span class="dot ${o.ok ? "ok" : "bad"}"></span>&nbsp; ${esc(o.model)} at ${esc(o.url)}` +
+    (o.error ? `<br><span class="err">${esc(o.error)}</span>` : "");
+  const i = s.index;
+  $("indexStatus").textContent = i.running
+    ? `Indexing now... ${i.scanned.toLocaleString()} files looked at, ${i.updated.toLocaleString()} updated.`
+    : `${i.files.toLocaleString()} files indexed. Last run: ${i.last_index ? new Date(i.last_index).toLocaleString() : "never"}.` +
+      (i.error ? ` Last error: ${i.error}` : "");
 }
 
 // ---------------------------------------------------------------- wiring
 
-document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => switchView(b.dataset.view)));
+document.querySelectorAll(".tabbar button").forEach((b) => (b.onclick = () => switchView(b.dataset.view)));
 document.querySelectorAll("[data-bills]").forEach((b) => (b.onclick = () => { billFilter = b.dataset.bills; loadBills(); }));
 $("scanBills").onclick = scanBills;
 $("composer").onsubmit = send;
@@ -254,6 +326,8 @@ $("reindex").onclick = async () => { await api("/api/index", { method: "POST" })
   me = await api("/api/me");
   document.title = me.assistant;
   $("appName").textContent = me.assistant;
+  loadStatus();
+  setInterval(loadStatus, 60000);
   await loadHistory();
   const hash = location.hash.slice(1);
   if (["bills", "settings"].includes(hash)) switchView(hash);

@@ -4,28 +4,36 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Homebase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="manifest" href="/static/manifest.json">
   <link rel="icon" href="/static/icon.svg">
-  <meta name="theme-color" content="#2f6f5e">
+  <meta name="theme-color" content="#7c3aed">
 </head>
 <body>
-  <div class="form">
-    <h1 id="title">Homebase</h1>
-    <p class="muted" id="subtitle">Sign in to your household assistant.</p>
-    <form id="form">
-      <div id="nameRow" hidden>
-        <label for="display_name">Your first name</label>
-        <input id="display_name" autocomplete="given-name">
+  <div class="auth">
+    <div class="auth-card">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
       </div>
-      <label for="username">Username</label>
-      <input id="username" autocomplete="username" autocapitalize="none" required>
-      <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="current-password" required>
-      <button class="btn" id="submit" type="submit">Sign in</button>
-      <div class="error" id="error"></div>
-    </form>
-    <p class="muted" id="switch" hidden><a href="#" id="toggle">Create an account instead</a></p>
+      <h1>Welcome to <span class="grad-text" id="title">Homebase</span></h1>
+      <p class="muted" id="subtitle">Sign in to your household assistant.</p>
+      <form id="form">
+        <div id="nameRow" hidden>
+          <label for="display_name">Your first name</label>
+          <input id="display_name" autocomplete="given-name">
+        </div>
+        <label for="username">Username</label>
+        <input id="username" autocomplete="username" autocapitalize="none" required>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button class="btn" id="submit" type="submit">Sign in</button>
+        <div class="error" id="error"></div>
+      </form>
+      <p class="muted" id="switch" hidden><a href="#" id="toggle">Create an account instead</a></p>
+    </div>
   </div>
 <script>
 let registering = false;
