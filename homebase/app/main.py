@@ -2,6 +2,7 @@
 import logging
 import mimetypes
 import os
+import sys
 import threading
 import time
 from pathlib import Path
@@ -16,7 +17,20 @@ from . import agent, bills, config, google_api, indexer, llm
 from .auth import current_user, hash_password, household, user_count, verify_password
 from .db import get_db, init_db
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+def _setup_logging() -> None:
+    from logging.handlers import RotatingFileHandler
+
+    handlers: list[logging.Handler] = [
+        RotatingFileHandler(config.LOG_PATH, maxBytes=2_000_000, backupCount=2, encoding="utf-8")
+    ]
+    if sys.stderr is not None:  # pythonw.exe (hidden window) has no console
+        handlers.append(logging.StreamHandler())
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", handlers=handlers, force=True
+    )
+
+
+_setup_logging()
 log = logging.getLogger("homebase")
 
 STATIC = Path(__file__).parent / "static"

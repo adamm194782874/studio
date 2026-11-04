@@ -81,7 +81,15 @@ def get_db():
 
 def init_db() -> None:
     with get_db() as db:
-        db.executescript(SCHEMA)
+        try:
+            db.executescript(SCHEMA)
+        except sqlite3.OperationalError as exc:
+            if "fts5" in str(exc).lower():
+                raise SystemExit(
+                    "This Python's SQLite doesn't support full text search (FTS5). "
+                    "Install Python 3.12 from python.org, which includes it."
+                ) from exc
+            raise
 
 
 def get_meta(key: str, default: str | None = None) -> str | None:

@@ -1,5 +1,6 @@
 """The tools the AI can call, described in the format Ollama expects."""
 import logging
+import os
 from datetime import date, datetime, time, timedelta
 
 from . import bills, config, google_api, indexer
@@ -127,7 +128,7 @@ def _dispatch(name: str, a: dict, ctx: Context):
     if name == "read_file":
         result = indexer.read(a.get("path", ""))
         if "error" not in result:
-            ctx.add_source(result["path"], result["path"].rsplit("/", 1)[-1])
+            ctx.add_source(result["path"], os.path.basename(result["path"]))
         return result
 
     if name == "list_events":

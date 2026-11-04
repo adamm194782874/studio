@@ -41,6 +41,10 @@ def run_index() -> dict:
     if not _lock.acquire(blocking=False):
         return {"skipped": "an index run is already in progress"}
     status.update(running=True, scanned=0, updated=0, removed=0, error=None)
+    if not config.NAS_ROOTS:
+        status.update(running=False, error="No NAS folders set. Add NAS_ROOTS to settings.env.")
+        _lock.release()
+        return {"skipped": status["error"]}
     started = time.time()
     max_bytes = config.MAX_FILE_MB * 1024 * 1024
     try:
@@ -53,8 +57,10 @@ def run_index() -> dict:
             pending = 0
             for root in config.NAS_ROOTS:
                 if not os.path.isdir(root):
-                    log.warning("NAS root %s does not exist, skipping", root)
-                    continue
+                    # Don't wipe the index just because the NAS is briefly unreachable.
+                    raise RuntimeError(
+                        f"Can't open {root}. Is the NAS on, and can this PC open that folder in File Explorer?"
+                    )
                 for dirpath, dirnames, filenames in os.walk(root):
                     dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
                     for fn in filenames:
