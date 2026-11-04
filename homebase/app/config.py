@@ -51,7 +51,11 @@ MAX_USERS = int(_get("MAX_USERS", "2"))
 OLLAMA_URL = _get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "qwen2.5:7b")
 OLLAMA_NUM_CTX = int(_get("OLLAMA_NUM_CTX", "8192"))
-OLLAMA_TIMEOUT = float(_get("OLLAMA_TIMEOUT", "300"))
+OLLAMA_TIMEOUT = float(_get("OLLAMA_TIMEOUT", "600"))
+# How long Ollama keeps the model loaded after the last question. Reloading is slow on older machines.
+OLLAMA_KEEP_ALIVE = _get("OLLAMA_KEEP_ALIVE", "4h")
+# How many past messages the AI sees. Fewer is faster.
+HISTORY_TURNS = int(_get("HISTORY_TURNS", "8"))
 
 NAS_ROOTS = _list("NAS_ROOTS", "")
 MAX_FILE_MB = float(_get("MAX_FILE_MB", "25"))

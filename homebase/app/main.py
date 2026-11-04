@@ -58,8 +58,9 @@ def _scheduler() -> None:
             last_index = now
             try:
                 indexer.run_index()
-            except Exception:
-                log.exception("Scheduled index failed")
+            except Exception as exc:
+                log.warning("Scheduled index failed, retrying in 10 minutes: %s", exc)
+                last_index = now - config.INDEX_EVERY_HOURS * 3600 + 600
         if config.BILL_SCAN_EVERY_HOURS > 0 and now - last_bills >= config.BILL_SCAN_EVERY_HOURS * 3600:
             last_bills = now
             try:
@@ -243,12 +244,14 @@ def update_bill(bill_id: int, body: BillUpdate, user=Depends(current_user)):
 
 @app.post("/api/bills-scan")
 def scan_bills(user=Depends(current_user)):
-    try:
-        return bills.scan(user["id"])
-    except google_api.NotLinked as exc:
-        raise HTTPException(400, str(exc))
-    except llm.LLMError as exc:
-        raise HTTPException(503, str(exc))
+    if user["id"] not in google_api.linked_user_ids():
+        raise HTTPException(400, "Connect your Google account in Settings first.")
+    return bills.start_scan(user["id"])
+
+
+@app.get("/api/bills-scan")
+def scan_status(user=Depends(current_user)):
+    return bills.scan_state
 
 
 # ---------------------------------------------------------------- files

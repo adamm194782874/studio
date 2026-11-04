@@ -1,11 +1,16 @@
 """Finds bills in Gmail and keeps one shared household bills list."""
 import logging
+import threading
 from datetime import date, datetime, timedelta
 
 from . import config, google_api, llm
 from .db import get_db
 
 log = logging.getLogger("homebase.bills")
+
+# Bill scans can take a long time on a slow computer, so they run in the background, one at a time.
+_scan_lock = threading.Lock()
+scan_state = {"running": False, "checked": 0, "found": 0, "error": None, "finished_at": None}
 
 GMAIL_QUERY = (
     'newer_than:{days}d -category:promotions -category:social '
@@ -70,6 +75,7 @@ def scan(user_id: int, days: int | None = None, max_emails: int = 40) -> dict:
         if c["id"] in done:
             continue
         checked += 1
+        scan_state["checked"] += 1
         mail = google_api.read_email(user_id, c["id"], max_chars=3500)
         prompt = EXTRACT_PROMPT.format(
             today=datetime.now(config.TZ).date().isoformat(), sender=mail["from"],
@@ -116,16 +122,47 @@ def scan(user_id: int, days: int | None = None, max_emails: int = 40) -> dict:
                      bill["autopay"], bill["status"], bill["subject"]),
                 )
                 found.append(bill)
+                scan_state["found"] += 1
     return {"emails_checked": checked, "new_bills": found}
 
 
+def _run_scans(user_ids: list[int]) -> None:
+    """Scan inboxes one after another. Caller must hold _scan_lock."""
+    scan_state.update(running=True, checked=0, found=0, error=None)
+    try:
+        for uid in user_ids:
+            try:
+                result = scan(uid)
+                log.info("Bill scan for user %s: checked %s, new %s", uid, result["emails_checked"], len(result["new_bills"]))
+            except google_api.NotLinked as exc:
+                log.warning("Bill scan skipped for user %s: %s", uid, exc)
+    except Exception as exc:
+        scan_state["error"] = str(exc)
+        raise
+    finally:
+        scan_state.update(running=False, finished_at=datetime.now(config.TZ).isoformat(timespec="seconds"))
+        _scan_lock.release()
+
+
 def scan_everyone() -> None:
-    for uid in google_api.linked_user_ids():
+    """Scheduled scan of every linked inbox. Waits if a manual scan is running."""
+    _scan_lock.acquire()
+    _run_scans(google_api.linked_user_ids())
+
+
+def start_scan(user_id: int) -> dict:
+    """Kick off a scan of one inbox in the background and return straight away."""
+    if not _scan_lock.acquire(blocking=False):
+        return {"started": False, "message": "A bill check is already running.", **scan_state}
+
+    def worker():
         try:
-            result = scan(uid)
-            log.info("Bill scan for user %s: %s", uid, {"checked": result["emails_checked"], "new": len(result["new_bills"])})
-        except google_api.NotLinked as exc:
-            log.warning("Bill scan skipped for user %s: %s", uid, exc)
+            _run_scans([user_id])
+        except Exception:
+            log.exception("Bill scan failed")
+
+    threading.Thread(target=worker, daemon=True, name="bill-scan").start()
+    return {"started": True, "message": "Checking your email for bills in the background."}
 
 
 def list_bills(status: str = "unpaid", due_within_days: int | None = None) -> list[dict]:

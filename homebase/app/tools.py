@@ -55,8 +55,9 @@ TOOLS = [
         "due_within_days limits to bills due in the next N days (includes overdue).",
         {"status": S, "due_within_days": I}),
     _fn("scan_email_for_bills",
-        "Check the current user's recent Gmail for new bills and add them to the bills list. Takes a minute.",
-        {"days": I}),
+        "Start checking the current user's recent Gmail for new bills. Runs in the background and takes "
+        "several minutes; new bills appear in the Bills tab.",
+        {}),
     _fn("update_bill",
         "Mark a bill as 'paid' or 'unpaid', or 'delete' it. Use the id from list_bills.",
         {"bill_id": I, "action": {**S, "description": "paid, unpaid or delete"}}, ["bill_id", "action"]),
@@ -199,9 +200,11 @@ def _dispatch(name: str, a: dict, ctx: Context):
         return {"today": datetime.now(config.TZ).date().isoformat(), "bills": rows}
 
     if name == "scan_email_for_bills":
-        result = bills.scan(uid, a.get("days"))
-        if result["new_bills"]:
-            ctx.actions.append(f"Found {len(result['new_bills'])} new bill(s) in email")
+        if uid not in google_api.linked_user_ids():
+            return {"error": "Connect Google in Settings first."}
+        result = bills.start_scan(uid)
+        if result["started"]:
+            ctx.actions.append("Checking email for bills (see the Bills tab)")
         return result
 
     if name == "update_bill":

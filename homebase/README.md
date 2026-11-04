@@ -1,24 +1,30 @@
 # Homebase
 
-A private household assistant that runs on your home PC and searches your Synology NAS. You and your wife each sign in and chat with it from your phones. It can:
+A private household assistant that runs on your iMac and searches your Synology NAS. You (and your wife, if she wants) sign in and chat with it from your phones. It can:
 
 * **Find files on the NAS.** Searches file names, folder names and the text inside PDFs, Word docs, Excel sheets and text files. You get a tap to open link.
 * **Read and add to your calendars.** "What's on this weekend?", "Put the dentist on Tuesday at 3", "When are we both free next week?"
-* **Track bills from email.** Scans both Gmail inboxes for bills, pulls out who, how much and when it's due, and keeps one shared list you can tick off.
+* **Track bills from email.** Scans Gmail for bills, pulls out who, how much and when it's due, and keeps one shared list you can tick off.
 
 ## How it fits together
 
 ```
 Phones (over Tailscale)
    ↓
-PC: Homebase app + Ollama (the AI model)
+iMac: Homebase app + Ollama (the AI model)
    ↓
-NAS shared folders (read only), Google Calendar + Gmail (each person's own account)
+NAS shared folders (read only), Google Calendar + Gmail
 ```
 
-Everything runs on the PC. The NAS just shares its folders over your home network, like it already does. Nothing leaves your house except calls to Google for your own calendar and email.
+Everything runs on the iMac. The NAS just shares its folders over your home network, like it already does. Nothing leaves your house except calls to Google for your own calendar and email.
 
-**The PC needs to be on and awake** for Homebase to work. These steps are written for Windows. Mac notes are at the end.
+**The iMac needs to be on and awake** for Homebase to work.
+
+### A heads up about speed
+
+Your iMac has an Intel chip, so the AI runs on the processor alone (no graphics card help). Expect answers to take **somewhere around 20 seconds to a couple of minutes**, longer for questions that need several steps like "find a free night and book it". The very first question after a while is the slowest, because the model has to load. The app shows a note while it's working so you know it hasn't frozen.
+
+File search, the bills list and the calendar are all quick. Only the AI's thinking is slow. If you ever get a Mac with an Apple chip, just change one line in `settings.env` and it'll fly.
 
 ---
 
@@ -26,47 +32,51 @@ Everything runs on the PC. The NAS just shares its folders over your home networ
 
 Plan on about an hour the first time. Do the steps in order.
 
-### Step 1: Check the PC can open your NAS folders
+### Step 0: Check your Mac
 
-1. On the PC, open File Explorer and type `\\DS418` in the address bar (or `\\` followed by the NAS's IP address, like `\\192.168.1.20`).
-2. You should see your shared folders (Documents, Photos and so on). If it asks for a login, use your NAS account and tick **Remember my credentials**.
-3. Note down the full paths of the folders you want searchable, e.g. `\\DS418\Documents`.
+Apple menu > **About This Mac**. Note the **Memory** and the **macOS** version.
+
+* You need **macOS 12 (Monterey) or newer** for Ollama.
+* With **8GB** of memory, stick with the small `qwen2.5:3b` model. With **16GB or more**, you can try `qwen2.5:7b`, which is smarter but slower.
+
+### Step 1: Connect the NAS folders
+
+1. In Finder, press **Cmd+K** (Go > Connect to Server), type `smb://DS418` (or `smb://` followed by the NAS's IP, like `smb://192.168.1.20`) and click Connect.
+2. Sign in with your NAS account and tick **Remember this password in my keychain**.
+3. Pick the shared folders you want searchable (e.g. Documents, Scans). Each one shows up in Finder's sidebar and lives at `/Volumes/<name>`, e.g. `/Volumes/Documents`.
+4. **Make them reconnect after a restart:** System Settings > General > **Login Items** > click **+** under "Open at Login", then choose each NAS folder (it's listed under your NAS in the sidebar).
 
 Homebase only ever *reads* files. It never changes, moves or deletes anything.
 
 ### Step 2: Ollama (the AI model)
 
-1. Install Ollama from https://ollama.com/download
-2. Pick a model based on your graphics card's memory (VRAM). These all handle tool calling well:
-
-   | Your GPU | Model to pull |
-   | :--- | :--- |
-   | 8GB | `qwen2.5:7b` |
-   | 12 to 16GB | `qwen2.5:14b` |
-   | 24GB or more | `qwen2.5:32b` |
-
-   Not sure? Press Ctrl+Shift+Esc, go to Performance > GPU, and look at "Dedicated GPU memory".
-
-3. Open Command Prompt and run, for example:
+1. Download Ollama from https://ollama.com/download, open the file and drag Ollama into Applications. Open it once.
+2. Open **Terminal** (Cmd+Space, type Terminal) and run:
 
    ```
-   ollama pull qwen2.5:7b
+   ollama pull qwen2.5:3b
    ```
 
-   Bigger models give noticeably better answers, so go as big as your card handles.
+   It's about a 2GB download.
+3. Quick test, still in Terminal:
+
+   ```
+   ollama run qwen2.5:3b "Say hi in five words"
+   ```
+
+   This shows you roughly how fast it'll be. Type `/bye` to exit if it stays open.
 
 ### Step 3: Python
 
-1. Download **Python 3.12** from https://www.python.org/downloads/windows/ ("Windows installer (64-bit)").
-2. Run it, and on the first screen **tick "Add python.exe to PATH"** before clicking Install Now.
+Download **Python 3.12** for macOS from https://www.python.org/downloads/macos/ and install it. (The Python that comes with macOS is too old.)
 
 ### Step 4: Tailscale (to reach it from your phones)
 
 1. Make a free account at https://tailscale.com
-2. Install Tailscale on the **PC** and sign in.
-3. Install the Tailscale app on **both phones** and sign in to the same account (or invite your wife to your tailnet).
+2. Install **Tailscale on the iMac** (from tailscale.com/download or the Mac App Store) and sign in.
+3. Install the Tailscale app on **your phone** (and your wife's, if she's joining) and sign in to the same account.
 4. In the Tailscale admin console (https://login.tailscale.com/admin/dns), turn on **MagicDNS** and **HTTPS Certificates**.
-5. Find your PC's address on the Machines page. It looks like `gaming-pc.tail1234.ts.net`. Your Homebase link will be `https://gaming-pc.tail1234.ts.net`.
+5. Find the iMac's address on the Machines page. It looks like `adams-imac.tail1234.ts.net`. Your Homebase link will be `https://adams-imac.tail1234.ts.net`.
 
 ### Step 5: Google project (for Calendar and Gmail)
 
@@ -76,73 +86,78 @@ This is the fiddliest step, but you only do it once.
 2. **APIs & Services > Library:** enable **Gmail API** and **Google Calendar API**.
 3. **OAuth consent screen** (may be called "Google Auth Platform"):
    * User type: **External**. App name: Homebase. Your email for the contact fields.
-   * **Audience / Test users:** add your Gmail and your wife's Gmail.
+   * **Audience / Test users:** add your Gmail (and your wife's, so she can connect later).
    * **Data access / Scopes:** add `gmail.readonly`, `calendar`, `userinfo.email` and `openid`.
 4. **Clients (or Credentials) > Create OAuth client ID:**
    * Application type: **Web application**
-   * Authorized redirect URI: `https://gaming-pc.tail1234.ts.net/auth/google/callback` (your address from Step 4)
+   * Authorized redirect URI: `https://adams-imac.tail1234.ts.net/auth/google/callback` (your address from Step 4)
    * Create, then **Download JSON**. Rename the file to `google_client_secret.json`.
 5. **Important:** go back to the **Audience** page and click **Publish app** (move it to "In production"). If you leave it in "Testing", Google signs you out every 7 days. You'll see a "Google hasn't verified this app" warning when you connect. That's expected for a private app: click **Advanced**, then **Go to Homebase**.
 
-### Step 6: Put Homebase on the PC
+### Step 6: Put Homebase on the iMac
 
-1. Copy this `homebase` folder to the PC, for example to `C:\Homebase`. Keep it on the PC's own drive, not on the NAS.
+1. Download the zip (link in the chat), unzip it, and move the `homebase` folder into your home folder, so it's at `/Users/<you>/homebase`. Keep it on the iMac, not on the NAS.
 2. Inside it, create a folder called `data`, and put `google_client_secret.json` in it.
-3. Copy `example.env` and name the copy `settings.env`. Open it in Notepad and fill in:
-   * `NAS_ROOTS`: your folders from Step 1, separated by commas
+3. Copy `example.env` and name the copy `settings.env`. Open it with TextEdit and fill in:
+   * `NAS_ROOTS`: your folders from Step 1, e.g. `/Volumes/Documents,/Volumes/Scans`
    * `TIMEZONE`: e.g. `Australia/Sydney` or `Europe/London`
    * `BASE_URL`: your Tailscale address from Step 4
    * `OLLAMA_MODEL`: the model you pulled in Step 2
 
-   Tip: Windows hides file extensions by default, so make sure it's really `settings.env` and not `settings.env.txt`. In File Explorer: View > Show > File name extensions.
+   Tips: Finder hides files starting with a dot, but `example.env` and `settings.env` are normal files, so you'll see them. In TextEdit, use Format > **Make Plain Text** before saving, and if it asks, choose "Use .env" rather than adding ".txt".
 
 ### Step 7: Start it
 
-1. Double click **`start.bat`**. The first time, it spends a few minutes installing what it needs. When you see `Homebase is starting`, it's running.
-2. On the PC, open http://localhost:8080 in a browser. You should see the Homebase sign in page.
-3. Leave that window open for now (closing it stops Homebase). Step 9 makes it run in the background.
+In Terminal:
+
+```
+cd ~/homebase
+sh start.sh
+```
+
+The first time, it spends a few minutes installing what it needs. When you see `Homebase is starting`, it's running. Open http://localhost:8080 in Safari on the iMac and you should see the Homebase sign in page.
+
+If macOS asks whether Python can access files on a network volume, click **Allow**.
 
 ### Step 8: Turn on HTTPS through Tailscale
 
-Open a new Command Prompt and run:
+Open a **new** Terminal window and run:
 
 ```
 tailscale serve --bg 8080
 ```
 
-Now open `https://gaming-pc.tail1234.ts.net` on your phone, with Tailscale switched on. You only need to do this once; it remembers.
+If it says `command not found`, use the full path instead:
 
-### Step 9: Make your accounts
+```
+/Applications/Tailscale.app/Contents/MacOS/Tailscale serve --bg 8080
+```
+
+Now open your Tailscale link on your phone, with Tailscale switched on. You only do this once; it remembers.
+
+### Step 9: Make your account
 
 1. Open your Homebase link. The first visit shows **Create account**. Make yours.
 2. Go to **Settings > Connect Google** and sign in with your Google account.
-3. Have your wife open the same link on her phone, tap **Create an account instead**, make hers and connect her Google.
-4. After two accounts, sign up closes automatically (change `MAX_USERS` in `settings.env` if you ever need more).
+3. **Add it to your home screen:** iPhone: open the link in Safari, tap Share, then **Add to Home Screen**. Android: Chrome, three dots, **Add to Home screen**.
 
-**Add it to your home screen:**
-* **iPhone:** open the link in Safari, tap Share, then **Add to Home Screen**.
-* **Android:** open the link in Chrome, tap the three dots, then **Add to Home screen** or **Install app**.
+Whenever your wife wants in, she opens the same link, taps **Create an account instead**, and connects her Google. Her spot stays open until she does.
 
-### Step 10: Start automatically, hidden in the background
+### Step 10: Start automatically
 
-So you don't have to double click `start.bat` every time:
+Go back to the Terminal window running `start.sh`, press **Ctrl+C** to stop it, then run:
 
-1. Close the `start.bat` window.
-2. Open **Task Scheduler** (search for it in the Start menu) and click **Create Task** (not "Basic Task").
-3. **General** tab: name it `Homebase`. Leave "Run only when user is logged on" selected (that's what lets it reach the NAS with your saved login).
-4. **Triggers** tab: New > Begin the task: **At log on** > OK.
-5. **Actions** tab: New:
-   * Program: `C:\Homebase\.venv\Scripts\pythonw.exe`
-   * Add arguments: `run.py`
-   * Start in: `C:\Homebase`
-6. **Settings** tab: untick **Stop the task if it runs longer than 3 days**.
-7. OK. Right click the task > **Run** to start it now.
+```
+sh mac-autostart.sh
+```
 
-It now starts quietly every time you log in. Its log is at `C:\Homebase\data\homebase.log`.
+Homebase now starts by itself whenever you log in, and restarts if it ever crashes. To turn that off: `sh mac-autostart.sh remove`.
 
-### Step 11: Stop the PC from sleeping
+Also make sure Ollama starts at login: it adds itself to Login Items by default, but check it's listed in System Settings > General > Login Items.
 
-Settings > System > Power > set **Sleep** to **Never** (at least when plugged in). The screen can still turn off; that's fine.
+### Step 11: Stop the iMac from sleeping
+
+System Settings > **Energy Saver** (or Battery > Options on newer macOS): turn on **Prevent automatic sleeping when the display is off**. The screen can still turn off; that's fine.
 
 ---
 
@@ -156,42 +171,43 @@ Things to try:
 * "Check my email for new bills"
 * "Mark the electricity bill as paid"
 * "What's on our calendar this weekend?"
-* "Find a free evening next week when we're both free, and book date night"
-* "Add the kids' swimming lesson Saturday at 10am to the Family calendar"
+* "Find a free evening next week and book date night"
 
-The **Bills** tab shows the shared list. Bills found in either inbox show up for both of you, labelled with whose email they came from. Email searches and reading full emails only ever use your own inbox.
+**Tips for a faster, smarter small model:**
+* Ask one thing at a time. "Find the car insurance" then "when does it renew?" works better than both at once.
+* Clear the chat (Settings > Clear chat history) when you change topic. Less history means faster answers.
+* For bills, the **Bills tab** is instant. You don't need to ask the AI.
+
+The **Bills** tab shows the shared list. "Check email" runs in the background (it can take a while on the iMac) and shows progress; new bills appear as they're found.
 
 ## What runs automatically
 
 * **File index:** every 6 hours. The first run can take a while if you have years of files, since it reads them over the network. After that only new or changed files get read. Settings shows progress, or tap **Re-index now**.
 * **Bill scan:** every 12 hours, for everyone who's connected Google.
 
-Change these in `settings.env`, then restart Homebase (Task Scheduler > right click Homebase > End, then Run).
+Change these in `settings.env`, then restart Homebase: `sh mac-autostart.sh` again restarts it with the new settings.
 
 ## Troubleshooting
 
-* **"AI offline" in the header:** Ollama isn't running. Open it from the Start menu.
-* **Settings shows the model in red:** run `ollama pull <model name>` in Command Prompt.
-* **"Can't open \\DS418\..." in Settings:** the PC can't reach the NAS. Open the folder in File Explorer to check, and make sure you ticked Remember my credentials.
+* **"AI offline" in the header:** Ollama isn't running. Open it from Applications.
+* **Settings shows the model in red:** run `ollama pull <model name>` in Terminal.
+* **Answers time out or are very slow:** switch to a smaller model, lower `OLLAMA_NUM_CTX` to `4096`, or set `HISTORY_TURNS=4`.
+* **"Can't open /Volumes/..." in Settings:** the NAS folder isn't connected. Reconnect it in Finder (Step 1). If it's connected but still fails, go to System Settings > Privacy & Security > **Files and Folders** (or Full Disk Access) and allow Python to use network volumes.
 * **Files aren't found:** check Settings > NAS file index shows a file count above 0.
 * **Scanned PDFs (photos of paper) aren't searchable by content:** they have no text inside. They're still searchable by file name, so naming scans well helps a lot.
 * **Google error "redirect_uri_mismatch":** the redirect URI in Google Cloud must exactly match `BASE_URL` plus `/auth/google/callback`.
 * **Google signs you out after a week:** the Google project is still in Testing. Publish it (Step 5.5).
-* **Phone can't open the link:** make sure Tailscale is switched on in the phone's app, and the PC is awake.
-* **Anything else:** look in `C:\Homebase\data\homebase.log`.
+* **Phone can't open the link:** make sure Tailscale is switched on in the phone's app, and the iMac is awake.
+* **Anything else:** look in `~/homebase/data/homebase.log`.
 
 ## Backups
 
-Everything Homebase knows lives in `C:\Homebase\data` (accounts, Google sign ins, bills list, chat history). Copy that folder to the NAS now and then, or add it to your backup tool. The search index rebuilds itself if lost.
+Everything Homebase knows lives in `~/homebase/data` (accounts, Google sign ins, bills list, chat history). If you use Time Machine, it's already covered. The search index rebuilds itself if lost.
 
 ## Updating
 
-Stop Homebase, copy the new files over the old ones (don't touch `data` or `settings.env`), then start it again. Any new requirements install automatically on the next `start.bat`.
+Copy the new files over the old ones (don't touch `data` or `settings.env`), then run `sh mac-autostart.sh` again to restart.
 
-## On a Mac instead
+## Running on Windows instead
 
-* Connect to the NAS in Finder (Go > Connect to Server > `smb://DS418`). Shares then live under `/Volumes`, so use e.g. `NAS_ROOTS=/Volumes/Documents`.
-* Install Python 3.12 from python.org, then run `./start.sh` in Terminal from the Homebase folder.
-* Tailscale: `tailscale serve --bg 8080` works the same (the Tailscale menu bar app includes the command line tool).
-* To start at login, the simplest way is to leave a Terminal window running `start.sh`, or ask and I'll write a launchd file for you.
-* System Settings > Energy: stop the Mac sleeping when plugged in.
+Same steps, with these differences: use network paths like `\\DS418\Documents` in `NAS_ROOTS`, double click `start.bat` instead of `start.sh`, tick "Add python.exe to PATH" when installing Python, and use Task Scheduler (At log on, program `homebase\.venv\Scripts\pythonw.exe`, argument `run.py`) to start it automatically.

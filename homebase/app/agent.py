@@ -10,7 +10,6 @@ from .tools import TOOLS, Context, run_tool
 
 log = logging.getLogger("homebase.agent")
 
-HISTORY_TURNS = 12
 MAX_STEPS = 6
 MAX_TOOL_CHARS = 7000
 
@@ -23,7 +22,7 @@ def _system_prompt(user: dict) -> str:
     )
     return f"""You are {config.ASSISTANT_NAME}, a private assistant for a household, running on their home NAS.
 You're talking with {user['display_name']}. Household members: {roster}.
-Right now it is {now:%A, %B %d, %Y, %I:%M %p} ({config.TIMEZONE_NAME}).
+Today is {now:%A, %B %d, %Y} ({config.TIMEZONE_NAME}). The current time is given with each message.
 
 What you can do with tools:
 * Find files on the NAS (search_files, read_file). Old documents, tax forms, manuals, photos.
@@ -47,7 +46,7 @@ def _history(user_id: int) -> list[dict]:
     with get_db() as db:
         rows = db.execute(
             "SELECT role, content FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT ?",
-            (user_id, HISTORY_TURNS),
+            (user_id, config.HISTORY_TURNS),
         ).fetchall()
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
 
@@ -59,8 +58,11 @@ def _save(user_id: int, role: str, content: str) -> None:
 
 def respond(user: dict, text: str) -> dict:
     ctx = Context(user)
+    # The system prompt only changes once a day, so Ollama can reuse its work on it between questions
+    # (a big speed win on slower computers). The exact time travels with the question instead.
+    now = datetime.now(config.TZ)
     messages = [{"role": "system", "content": _system_prompt(user)}, *_history(user["id"]),
-                {"role": "user", "content": text}]
+                {"role": "user", "content": f"{text}\n\n(Sent {now:%a %b %d, %I:%M %p})"}]
     _save(user["id"], "user", text)
 
     answer = ""

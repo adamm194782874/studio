@@ -15,7 +15,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None, fmt=None, temper
         "model": config.OLLAMA_MODEL,
         "messages": messages,
         "stream": False,
-        "keep_alive": "30m",
+        "keep_alive": config.OLLAMA_KEEP_ALIVE,
         "options": {"num_ctx": config.OLLAMA_NUM_CTX, "temperature": temperature},
     }
     if tools:

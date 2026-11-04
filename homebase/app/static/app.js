@@ -127,7 +127,15 @@ async function send(e) {
   autosize();
   addMessage("user", text);
   const pending = addMessage("assistant", "");
-  pending.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+  pending.innerHTML = '<span class="typing"><span></span><span></span><span></span></span><div class="slow-note"></div>';
+  const notes = [
+    [20000, "Still thinking. Slower computers can take a minute or two."],
+    [75000, "Nearly there, probably. Bigger questions take longer."],
+  ];
+  const timers = notes.map(([ms, msg]) => setTimeout(() => {
+    const n = pending.querySelector(".slow-note");
+    if (n) n.textContent = msg;
+  }, ms));
   $("send").disabled = true;
   try {
     const res = await api("/api/chat", { method: "POST", body: JSON.stringify({ message: text }) });
@@ -136,6 +144,7 @@ async function send(e) {
   } catch (err) {
     pending.innerHTML = `<span class="err">${esc(err.message)}</span>`;
   } finally {
+    timers.forEach(clearTimeout);
     $("send").disabled = false;
     $("input").focus();
   }
@@ -153,7 +162,7 @@ function switchView(name) {
   document.querySelectorAll(".tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   $("composer").style.display = name === "chat" ? "" : "none";
-  if (name === "bills") loadBills();
+  if (name === "bills") { loadBills(); pollScan(); }
   if (name === "settings") loadSettings();
   if (name === "chat") scrollDown();
   history.replaceState(null, "", name === "chat" ? "/" : `#${name}`);
@@ -234,21 +243,35 @@ async function loadBills() {
   });
 }
 
-async function scanBills() {
+let scanTimer = null;
+
+async function pollScan() {
   const btn = $("scanBills");
   const label = btn.querySelector("span");
-  btn.disabled = true;
-  label.textContent = "Checking...";
+  const st = await api("/api/bills-scan");
+  if (st.running) {
+    btn.disabled = true;
+    label.textContent = `Checking... ${st.checked} emails, ${st.found} bills`;
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(pollScan, 5000);
+    return;
+  }
+  btn.disabled = false;
+  label.textContent = "Check email";
+  if (scanTimer) {
+    scanTimer = null;
+    if (st.error) alert(st.error);
+    loadBills();
+  }
+}
+
+async function scanBills() {
   try {
     const res = await api("/api/bills-scan", { method: "POST" });
-    label.textContent = `Found ${res.new_bills.length} new`;
-    loadBills();
+    if (!res.started) alert(res.message);
+    scanTimer = setTimeout(pollScan, 500);
   } catch (err) {
     alert(err.message);
-    label.textContent = "Check email";
-  } finally {
-    btn.disabled = false;
-    setTimeout(() => { label.textContent = "Check email"; }, 4000);
   }
 }
 
