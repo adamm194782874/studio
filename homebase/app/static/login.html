@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Homebase</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" href="/static/icon.svg">
+  <meta name="theme-color" content="#2f6f5e">
+</head>
+<body>
+  <div class="form">
+    <h1 id="title">Homebase</h1>
+    <p class="muted" id="subtitle">Sign in to your household assistant.</p>
+    <form id="form">
+      <div id="nameRow" hidden>
+        <label for="display_name">Your first name</label>
+        <input id="display_name" autocomplete="given-name">
+      </div>
+      <label for="username">Username</label>
+      <input id="username" autocomplete="username" autocapitalize="none" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button class="btn" id="submit" type="submit">Sign in</button>
+      <div class="error" id="error"></div>
+    </form>
+    <p class="muted" id="switch" hidden><a href="#" id="toggle">Create an account instead</a></p>
+  </div>
+<script>
+let registering = false;
+const $ = (id) => document.getElementById(id);
+
+function setMode(reg) {
+  registering = reg;
+  $("nameRow").hidden = !reg;
+  $("submit").textContent = reg ? "Create account" : "Sign in";
+  $("password").autocomplete = reg ? "new-password" : "current-password";
+  $("subtitle").textContent = reg ? "Set up your account (8+ character password)." : "Sign in to your household assistant.";
+  $("toggle").textContent = reg ? "I already have an account" : "Create an account instead";
+}
+
+fetch("/api/setup").then(r => r.json()).then(s => {
+  document.title = s.name;
+  $("title").textContent = s.name;
+  if (s.can_register) $("switch").hidden = false;
+  if (s.users === 0) setMode(true);
+});
+
+$("toggle").onclick = (e) => { e.preventDefault(); setMode(!registering); };
+
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("error").textContent = "";
+  $("submit").disabled = true;
+  const body = { username: $("username").value, password: $("password").value };
+  if (registering) body.display_name = $("display_name").value || $("username").value;
+  try {
+    const r = await fetch(registering ? "/api/register" : "/api/login", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (r.ok) { location.href = "/"; return; }
+    const err = await r.json().catch(() => ({}));
+    const d = err.detail;
+    $("error").textContent = Array.isArray(d) ? "Check your details (password needs 8+ characters)." : (d || "Something went wrong.");
+  } finally {
+    $("submit").disabled = false;
+  }
+};
+</script>
+</body>
+</html>

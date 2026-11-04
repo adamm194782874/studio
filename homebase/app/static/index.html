@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Homebase</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" href="/static/icon.svg">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2f6f5e">
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="appName">Homebase</h1>
+    <nav>
+      <button data-view="chat" class="active">Chat</button>
+      <button data-view="bills">Bills</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="view active" id="view-chat">
+      <div id="messages"></div>
+    </section>
+
+    <section class="view" id="view-bills">
+      <div class="row tabs">
+        <button class="btn small" data-bills="unpaid">Unpaid</button>
+        <button class="btn small ghost" data-bills="paid">Paid</button>
+        <button class="btn small ghost" data-bills="all">All</button>
+        <span class="spacer"></span>
+        <button class="btn small ghost" id="scanBills">Check my email</button>
+      </div>
+      <div class="card" id="billList"><p class="muted">Loading...</p></div>
+    </section>
+
+    <section class="view" id="view-settings">
+      <div class="card">
+        <h2>Your account</h2>
+        <p class="muted" id="whoami"></p>
+        <div class="row">
+          <button class="btn small ghost" id="clearChat">Clear chat history</button>
+          <button class="btn small ghost" id="logout">Sign out</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Google (Calendar and Gmail)</h2>
+        <p class="muted" id="googleStatus"></p>
+        <div class="row" id="googleButtons"></div>
+      </div>
+      <div class="card">
+        <h2>Household</h2>
+        <div id="householdList" class="muted"></div>
+      </div>
+      <div class="card">
+        <h2>AI model (Ollama)</h2>
+        <p class="muted" id="ollamaStatus">Checking...</p>
+      </div>
+      <div class="card">
+        <h2>NAS file index</h2>
+        <p class="muted" id="indexStatus">Checking...</p>
+        <button class="btn small ghost" id="reindex">Re-index now</button>
+      </div>
+    </section>
+  </main>
+
+  <form class="composer" id="composer">
+    <textarea id="input" rows="1" placeholder="Ask about files, plans or bills..." autocomplete="off"></textarea>
+    <button class="btn" id="send" type="submit">Send</button>
+  </form>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
