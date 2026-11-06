@@ -24,6 +24,7 @@
   --line: rgba(255, 255, 255, .09);
   --shadow: 0 10px 30px rgba(0, 0, 0, .35);
   --glow-amt: 38%;
+  --sheet-bg: #121420;
   --ink-mix: white;
   --ink-amt: 30%;
   color-scheme: dark;
@@ -47,6 +48,7 @@
   --line: rgba(16, 20, 40, .09);
   --shadow: 0 8px 24px rgba(16, 20, 40, .08);
   --glow-amt: 22%;
+    --sheet-bg: #ffffff;
   --ink-mix: black;
   --ink-amt: 12%;
   color-scheme: light;
@@ -64,6 +66,7 @@
     --line: rgba(16, 20, 40, .09);
     --shadow: 0 8px 24px rgba(16, 20, 40, .08);
     --glow-amt: 22%;
+    --sheet-bg: #ffffff;
     --ink-mix: black;
     --ink-amt: 12%;
     color-scheme: light;
@@ -345,6 +348,35 @@ textarea.field { padding: 10px 12px; min-height: 120px; resize: vertical; font: 
   transition: .2s; max-width: calc(100% - 32px); text-align: center;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* Swap / add sheet */
+.exname { all: unset; cursor: pointer; font: inherit; border-radius: 8px; display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; margin: -8px 0; }
+.exname:focus-visible { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.sheet {
+  border: 0; padding: 0; background: none; color: var(--text);
+  width: calc(100% - 24px); max-width: 560px;
+  margin: calc(12px + env(safe-area-inset-top)) auto auto; max-height: calc(100% - 24px);
+}
+.sheet::backdrop { background: rgba(3, 4, 10, .6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.sheet-in {
+  display: grid; gap: 12px; padding: 16px; border-radius: 26px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, var(--sheet-bg)), var(--sheet-bg) 55%);
+  border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+}
+.sheet-h { display: flex; align-items: center; justify-content: space-between; }
+.sheet-h h2 { font-size: 22px; }
+.sheet-in .hint { margin: 0; color: var(--muted); font-size: 14px; }
+.sheet-in .hint b { color: var(--text); }
+.sheet-lbl { font-weight: 700; color: var(--muted); }
+#sheet-lift { width: 170px; flex: none; }
+.sugs { display: flex; flex-wrap: wrap; gap: 8px; max-height: 38vh; overflow-y: auto; }
+.sug {
+  min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface-2); font-weight: 700; font-size: 15px;
+}
+.sug:active { transform: scale(.96); }
+.sug.new { background: var(--grad); border-color: transparent; color: #fff; }
+@media (min-width: 900px) { .sheet { margin-top: 12vh; } }
 
 /* Small phones */
 @media (max-width: 360px) {

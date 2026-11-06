@@ -38,6 +38,10 @@ Then open http://localhost:8000.
 
 When you change any file, bump `VERSION` in `sw.js` (for example `bb-v2`). The app picks up the new files on the next open, and shows them the time after that.
 
+## Swapping exercises
+
+Tap the swap arrows on any exercise card (or tap its name). Type anything you like, or tap a suggestion, and it swaps straight away. Sets, reps and percentages stay the same, and the new exercise starts a fresh log. The old one's history is kept, so "Restore this day" brings it back with its weights. Names you type are remembered and show first next time.
+
 ## Changing your program
 
 Tap **Edit** on any day, or the pencil on any exercise card. You can rename an exercise (with suggestions), change which lift it counts toward, change reps and percentages for each set, add or remove sets, reorder, delete and add exercises. Reps and sets change in all 4 weeks unless you tick "Only change sets and reps in this week". Percentages always change in the week you're looking at, so your weekly progression stays intact.

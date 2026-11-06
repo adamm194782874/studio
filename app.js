@@ -57,7 +57,7 @@ function defaultProgram() {
 /* ---------- State ---------- */
 const clone = o => JSON.parse(JSON.stringify(o));
 const THEMES = ['dark', 'light', 'system'];
-const blank = () => ({ program: defaultProgram(), logs: {}, maxes: { sq: null, bp: null, dl: null }, week: 0, theme: 'dark' });
+const blank = () => ({ program: defaultProgram(), logs: {}, maxes: { sq: null, bp: null, dl: null }, week: 0, theme: 'dark', names: [] });
 
 function normalize(s) {
   const b = blank();
@@ -69,7 +69,8 @@ function normalize(s) {
     logs: s.logs && typeof s.logs === 'object' ? s.logs : {},
     maxes: Object.assign(b.maxes, s.maxes || {}),
     week: [0, 1, 2, 3].includes(s.week) ? s.week : 0,
-    theme: THEMES.includes(s.theme) ? s.theme : 'dark'
+    theme: THEMES.includes(s.theme) ? s.theme : 'dark',
+    names: Array.isArray(s.names) ? s.names.filter(n => typeof n === 'string') : []
   };
 }
 function load() {
@@ -146,6 +147,8 @@ const ICON = {
   down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
   edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
   done: '<svg viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  swap: '<svg viewBox="0 0 24 24"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   pencil: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>'
 };
 
@@ -198,10 +201,11 @@ function setCard(ex) {
     </div>`;
   }).join('');
   return `<article class="card ${ex.lift !== 'none' ? 'main' : ''}" data-ex="${ex.id}">
-    <div class="card-h"><h3>${esc(ex.name)}</h3>
-      <span class="chip ${ex.lift !== 'none' ? 'lift' : ''}">${LIFTS[ex.lift] || 'Accessory'}</span>
+    <div class="card-h"><h3><button class="exname" data-act="swap" aria-label="Swap ${esc(ex.name)}">${esc(ex.name)}</button></h3>
+      ${ex.lift !== 'none' ? `<span class="chip lift">${LIFTS[ex.lift]}</span>` : ''}
       <span class="count" data-cc="${ex.id}"></span>
-      <button class="pen" data-act="editcard" aria-label="Edit ${esc(ex.name)}">${ICON.pencil}</button></div>
+      <button class="pen" data-act="swap" aria-label="Swap ${esc(ex.name)} for another exercise" title="Swap">${ICON.swap}</button>
+      <button class="pen" data-act="editcard" aria-label="Edit ${esc(ex.name)}" title="Edit">${ICON.pencil}</button></div>
     ${rows || '<div class="empty">No sets this week.</div>'}
   </article>`;
 }
@@ -241,8 +245,65 @@ const COMMON = ['Squat', 'Front Squat', 'Pause Squat', 'Bench Press', 'Pause Ben
   'Decline Tricep Press', 'Plank', 'Ab Wheel'];
 function exerciseNames() {
   const set = new Set(COMMON);
+  for (const n of state.names) set.add(n);
   for (const d of DAYS) for (const ex of state.program[d]) set.add(ex.name);
-  return [...set].sort();
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+function rememberName(name) {
+  const known = COMMON.concat(state.names).some(n => n.toLowerCase() === name.toLowerCase());
+  if (!known) state.names.push(name);
+  else { const i = state.names.findIndex(n => n.toLowerCase() === name.toLowerCase()); if (i > -1) state.names.push(...state.names.splice(i, 1)); }
+}
+
+/* ---------- Swap / add sheet ---------- */
+// mode 'swap' replaces an exercise (fresh log, same sets), mode 'add' adds a new one to the current day.
+let sheet = null;
+function openSheet(mode, exId) {
+  const f = exId ? findEx(exId) : null;
+  sheet = { mode, exId };
+  const lift = f ? f.ex.lift : 'none';
+  const dlg = $('#sheet');
+  dlg.innerHTML = `<form class="sheet-in" data-form="sheet" autocomplete="off">
+    <div class="sheet-h"><h2>${mode === 'swap' ? 'Swap exercise' : 'Add exercise'}</h2>
+      <button type="button" class="pen" data-act="closesheet" aria-label="Close">${ICON.close}</button></div>
+    ${mode === 'swap' ? `<p class="hint">Replacing <b>${esc(f.ex.name)}</b>. Sets, reps and percentages stay the same and the new one starts a fresh log.</p>`
+      : `<p class="hint">Adds to ${DAY_META[ui.day].name} with 3 sets of 3. Change them in Edit.</p>`}
+    <input class="field ename" id="sheet-name" placeholder="Type any exercise" enterkeyhint="done" aria-label="Exercise name">
+    <div class="sugs" id="sheet-sugs"></div>
+    <div class="erow"><label for="sheet-lift" class="grow sheet-lbl">Counts toward</label>
+      <select id="sheet-lift" class="field">${Object.entries(LIFTS).map(([k, v]) => `<option value="${k}" ${lift === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    <button class="btn primary block" type="submit">${mode === 'swap' ? ICON.swap + 'Swap' : ICON.plus + 'Add'}</button>
+  </form>`;
+  renderSugs('');
+  if (!dlg.open) dlg.showModal();
+  $('#sheet-name').focus();
+}
+function renderSugs(q) {
+  const cur = sheet && sheet.exId ? findEx(sheet.exId).ex.name.toLowerCase() : '';
+  const query = q.trim().toLowerCase();
+  const mine = state.names.slice().reverse(); // your own names first, newest at the front
+  const all = [...new Set(mine.concat(exerciseNames()))];
+  const names = all.filter(n => n.toLowerCase() !== cur && (!query || n.toLowerCase().includes(query)));
+  const exact = names.some(n => n.toLowerCase() === query);
+  const typed = query && !exact ? `<button type="button" class="sug new" data-act="pick" data-name="${esc(q.trim())}">Use “${esc(q.trim())}”</button>` : '';
+  $('#sheet-sugs').innerHTML = typed + names.slice(0, query ? 30 : 16).map(n => `<button type="button" class="sug" data-act="pick" data-name="${esc(n)}">${esc(n)}</button>`).join('');
+}
+function closeSheet() { const d = $('#sheet'); if (d.open) d.close(); sheet = null; }
+function submitSheet(name) {
+  name = (name || '').trim().replace(/\s+/g, ' ');
+  if (!name) { $('#sheet-name').focus(); return toast('Type an exercise name'); }
+  const lift = $('#sheet-lift').value;
+  rememberName(name);
+  if (sheet.mode === 'swap') {
+    const f = findEx(sheet.exId);
+    const old = f.ex.name;
+    f.ex.id = uid(); f.ex.name = name; f.ex.lift = lift;
+    toast(`Swapped ${old} for ${name}`);
+  } else {
+    state.program[ui.day].push({ id: uid(), name, lift, weeks: allWeeks(3, 3) });
+    toast(`${name} added`);
+  }
+  save(); closeSheet(); renderTrain();
 }
 
 function updateCounts() {
@@ -488,6 +549,9 @@ document.addEventListener('click', e => {
   if (armed && armed.btn !== b) disarm();
 
   if (act === 'tab') return show(b.dataset.tab);
+  if (act === 'swap') return openSheet('swap', b.closest('[data-ex]').dataset.ex);
+  if (act === 'pick') return submitSheet(b.dataset.name);
+  if (act === 'closesheet') return closeSheet();
   if (act === 'week') { state.week = +b.dataset.w; save(); return renderTrain(); }
   if (act === 'day') { ui.day = b.dataset.d; return renderTrain(); }
   if (act === 'edit') { ui.edit = !ui.edit; return renderTrain(); }
@@ -527,14 +591,7 @@ document.addEventListener('click', e => {
       save(); renderTrain(); toast(`${found.ex.name} deleted`);
     });
   }
-  if (act === 'addex') {
-    const ex = { id: uid(), name: 'New exercise', lift: 'none', weeks: allWeeks(3, 3) };
-    state.program[ui.day].push(ex);
-    save(); renderTrain();
-    const inp = $(`[data-ex="${ex.id}"] [data-field="name"]`);
-    if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); inp.select(); }
-    return;
-  }
+  if (act === 'addex') return openSheet('add');
   if (act === 'restoreday') {
     return confirmTap(b, 'Tap again to restore', () => {
       state.program[ui.day] = defaultProgram()[ui.day];
@@ -551,8 +608,13 @@ document.addEventListener('click', e => {
   }
 });
 
+document.addEventListener('submit', e => {
+  if (e.target.dataset.form === 'sheet') { e.preventDefault(); submitSheet($('#sheet-name').value); }
+});
+document.addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); }); // tap outside the panel
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.id === 'sheet-name') return renderSugs(t.value);
   if (t.classList.contains('wt')) {
     const row = t.closest('.set');
     return setLog(row.dataset.k, { weight: parseW(t.value) });
@@ -576,7 +638,7 @@ document.addEventListener('change', e => {
   const ex = found.ex;
   if (f === 'name') {
     const name = t.value.trim();
-    if (name) ex.name = name; else t.value = ex.name;
+    if (name) { ex.name = name; rememberName(name); } else t.value = ex.name;
   }
   if (f === 'lift') ex.lift = t.value;
   if (f === 'reps') {
@@ -600,7 +662,7 @@ document.addEventListener('change', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.matches('input.wt, input.field')) e.target.blur();
+  if (e.key === 'Enter' && e.target.matches('input.wt, input.field') && e.target.id !== 'sheet-name') e.target.blur();
 });
 
 /* ---------- Theme ---------- */
