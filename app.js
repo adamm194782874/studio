@@ -100,7 +100,7 @@ function save() {
 }
 
 let state = load();
-const ui = { tab: 'train', day: currentTrainingDay(), edit: false, weekOnly: false, restHide: 0, prevPlates: [] };
+const ui = { tab: 'today', day: currentTrainingDay(), edit: false, weekOnly: false, restHide: 0, prevPlates: [] };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function currentTrainingDay() {
@@ -1008,7 +1008,7 @@ darkMQ.addEventListener && darkMQ.addEventListener('change', applyTheme);
 /* ---------- Boot ---------- */
 applyTheme();
 lastT = computeLastT();
-show('train');
+show('today');
 setInterval(tick, 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
