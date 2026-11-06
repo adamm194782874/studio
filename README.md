@@ -38,6 +38,14 @@ Then open http://localhost:8000.
 
 When you change any file, bump `VERSION` in `sw.js` (for example `bb-v2`). The app picks up the new files on the next open, and shows them the time after that.
 
+## Screens
+
+* **Today:** live dashboard. Session progress ring, session timer, rest timer since your last ticked set, volume, top set, your next set with its plates, and estimated maxes (Epley).
+* **Train:** log sets. Squat, bench and deadlift rows show the plates per side under each set. A rest timer pill pops up after each ticked set (tap to hide).
+* **Plates:** plate calculator for KG plates in competition colours. Pick a 20, 15 or 25 kg bar, 2.5 kg comp collars or none, and which plates you have. Quick load buttons give 50% to 100% of your maxes.
+* **Progress:** best lifts, total, top weight per week and sets done per day.
+* **Setup:** maxes, backup and restore, theme and reset.
+
 ## Swapping exercises
 
 Tap the swap arrows on any exercise card (or tap its name). Type anything you like, or tap a suggestion, and it swaps straight away. Sets, reps and percentages stay the same, and the new exercise starts a fresh log. The old one's history is kept, so "Restore this day" brings it back with its weights. Names you type are remembered and show first next time.

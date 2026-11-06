@@ -57,7 +57,10 @@ function defaultProgram() {
 /* ---------- State ---------- */
 const clone = o => JSON.parse(JSON.stringify(o));
 const THEMES = ['dark', 'light', 'system'];
-const blank = () => ({ program: defaultProgram(), logs: {}, maxes: { sq: null, bp: null, dl: null }, week: 0, theme: 'dark', names: [] });
+const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25, 0.5, 0.25];
+const BARS = { 20: '20 kg', 15: '15 kg', 25: '25 kg squat' };
+const defaultPlates = () => ({ bar: 20, collar: 0, avail: PLATES.slice(), target: 100 });
+const blank = () => ({ program: defaultProgram(), logs: {}, maxes: { sq: null, bp: null, dl: null }, week: 0, theme: 'dark', names: [], plates: defaultPlates() });
 
 function normalize(s) {
   const b = blank();
@@ -70,7 +73,18 @@ function normalize(s) {
     maxes: Object.assign(b.maxes, s.maxes || {}),
     week: [0, 1, 2, 3].includes(s.week) ? s.week : 0,
     theme: THEMES.includes(s.theme) ? s.theme : 'dark',
-    names: Array.isArray(s.names) ? s.names.filter(n => typeof n === 'string') : []
+    names: Array.isArray(s.names) ? s.names.filter(n => typeof n === 'string') : [],
+    plates: normPlates(s.plates)
+  };
+}
+function normPlates(p) {
+  const d = defaultPlates();
+  if (!p || typeof p !== 'object') return d;
+  return {
+    bar: BARS[p.bar] ? +p.bar : d.bar,
+    collar: p.collar === 2.5 ? 2.5 : 0,
+    avail: Array.isArray(p.avail) ? PLATES.filter(x => p.avail.includes(x)) : d.avail,
+    target: Number.isFinite(p.target) && p.target >= 0 ? p.target : d.target
   };
 }
 function load() {
@@ -86,7 +100,8 @@ function save() {
 }
 
 let state = load();
-const ui = { tab: 'train', day: currentTrainingDay(), edit: false, weekOnly: false };
+const ui = { tab: 'train', day: currentTrainingDay(), edit: false, weekOnly: false, restHide: 0, prevPlates: [] };
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function currentTrainingDay() {
   const dow = new Date().getDay();
@@ -148,12 +163,14 @@ const ICON = {
   edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
   done: '<svg viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></svg>',
   swap: '<svg viewBox="0 0 24 24"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>',
+  bolt: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+  plate: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>',
   close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   pencil: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>'
 };
 
 /* ---------- Train view ---------- */
-function renderTrain() {
+function renderTrain(anim) {
   const d = ui.day, w = state.week, list = state.program[d];
   document.body.dataset.day = d;
   const cards = list.length
@@ -182,7 +199,8 @@ function renderTrain() {
       <button class="btn primary block" data-act="addex">${ICON.plus}Add exercise</button>
       <button class="btn danger block" data-act="restoreday">Restore ${DAY_META[d].name} to the original plan</button>
     </div>` : ''}`;
-  updateCounts();
+  if (anim) stagger($('#train .cards'));
+  updateCounts(true);
 }
 
 function setCard(ex) {
@@ -198,6 +216,7 @@ function setCard(ex) {
         ${sug != null ? `data-sug="${sug}"` : ''} aria-label="${esc(ex.name)} set ${i + 1} weight in kg">
       <button class="step" data-act="plus" aria-label="Plus 2.5 kg">${ICON.plus}</button>
       <button class="check" data-act="check" aria-pressed="${!!L.done}" aria-label="Set ${i + 1} done">${ICON.check}</button>
+      ${LIFT_DAY[ex.lift] ? `<div class="pl-line" data-pl>${plateLine(L.weight != null ? L.weight : sug, L.weight == null)}</div>` : ''}
     </div>`;
   }).join('');
   return `<article class="card ${ex.lift !== 'none' ? 'main' : ''}" data-ex="${ex.id}">
@@ -306,30 +325,45 @@ function submitSheet(name) {
   save(); closeSheet(); renderTrain();
 }
 
-function updateCounts() {
+function setText(el, text, quiet) {
+  if (el.textContent === text) return;
+  el.textContent = text;
+  if (quiet || reduceMotion.matches) return;
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+}
+function updateCounts(quiet) {
   const w = state.week;
   for (const d of DAYS) {
     const el = $(`[data-dc="${d}"]`);
     if (!el) continue;
     const c = dayCount(d, w);
-    el.textContent = `${c.done}/${c.total}`;
+    setText(el, `${c.done}/${c.total}`, quiet);
     el.parentElement.classList.toggle('full', c.total > 0 && c.done === c.total);
   }
   for (const ex of state.program[ui.day]) {
     const el = $(`[data-cc="${ex.id}"]`);
     if (!el) continue;
     const c = exCount(ex, w);
-    el.textContent = `${c.done}/${c.total}`;
+    setText(el, `${c.done}/${c.total}`, quiet);
     el.classList.toggle('full', c.total > 0 && c.done === c.total);
   }
 }
 
 function setLog(k, patch) {
   const L = Object.assign({}, state.logs[k], patch);
+  if (patch.done === true) L.t = Date.now();
+  if (patch.done === false) delete L.t;
   if (L.weight == null && !L.done) delete state.logs[k];
   else state.logs[k] = L;
   save();
   updateCounts();
+  if ('done' in patch) { lastT = computeLastT(); tick(); }
+}
+function refreshRowPlates(row) {
+  const el = $('[data-pl]', row);
+  if (!el) return;
+  const inp = $('.wt', row), v = parseW(inp.value);
+  el.innerHTML = plateLine(v != null ? v : (inp.dataset.sug ? +inp.dataset.sug : null), v == null);
 }
 
 function startWeight(row) {
@@ -419,7 +453,7 @@ function chartSVG(weekTop) {
     lifts.forEach((l, j) => {
       const x = gx + j * (bw + 4), v = o[l];
       if (v) {
-        g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="6" fill="url(#g-${l})"><title>${LIFTS[l]} ${WEEKS[w]}: ${fmtW(v)} kg</title></rect>`;
+        g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="6" fill="url(#g-${l})" class="bar-r" style="--i:${w * 3 + j}"><title>${LIFTS[l]} ${WEEKS[w]}: ${fmtW(v)} kg</title></rect>`;
         g += `<text class="val" x="${x + bw / 2}" y="${y(v) - 5}" text-anchor="middle">${fmtW(v)}</text>`;
       }
     });
@@ -432,7 +466,7 @@ function renderProgress() {
   const { best, weekTop } = progressData();
   const total = best.sq + best.bp + best.dl;
   const tile = (l) => `<div class="tile" style="--g: var(--${LIFT_DAY[l]}-grad)"><small>Best ${LIFTS[l].toLowerCase()}</small>
-    <b>${best[l] ? fmtW(best[l]) : '0'}<i>kg</i></b>
+    <b><span data-count="${best[l]}">0</span><i>kg</i></b>
     <div class="sub">${state.maxes[l] ? `Max set to ${fmtW(state.maxes[l])} kg` : 'Heaviest set checked'}</div></div>`;
 
   const dayRows = DAYS.map(d => {
@@ -448,7 +482,7 @@ function renderProgress() {
   document.body.dataset.day = ui.day;
   $('#progress').innerHTML = `
     <div class="tiles">${tile('sq')}${tile('bp')}${tile('dl')}
-      <div class="tile total"><small>Total</small><b>${total ? fmtW(total) : '0'}<i>kg</i></b><div class="sub">Best squat + bench + deadlift</div></div>
+      <div class="tile total"><small>Total</small><b><span data-count="${total}">0</span><i>kg</i></b><div class="sub">Best squat + bench + deadlift</div></div>
     </div>
     <div class="cols">
       <div class="panel"><h2>Top weight per week</h2><p class="hint">Heaviest checked set for each lift.</p>
@@ -456,6 +490,262 @@ function renderProgress() {
         ${chartSVG(weekTop)}</div>
       <div class="panel"><h2>Sets done per day</h2><p class="hint">Across all four weeks.</p>${dayRows}</div>
     </div>`;
+  countUp($('#progress'));
+  stagger($('#progress'), '.tile, .panel');
+}
+
+/* ---------- Plates ---------- */
+// Competition style colours. h = height as % of a full plate, t = thickness units.
+const PLATE_STYLE = {
+  25: { c: '#e5232b', h: 100, t: 26 }, 20: { c: '#1f5fd6', h: 100, t: 22 }, 15: { c: '#f2c418', h: 92, t: 20 },
+  10: { c: '#1f9d4b', h: 84, t: 17 }, 5: { c: '#f1f2f4', h: 62, t: 14 }, 2.5: { c: '#26262d', h: 50, t: 11 },
+  1.25: { c: '#b8bcc6', h: 42, t: 9 }, 0.5: { c: '#c9ccd4', h: 34, t: 7 }, 0.25: { c: '#d9dbe1', h: 30, t: 6 }
+};
+function loadBar(total) {
+  const P = state.plates;
+  const base = P.bar + 2 * P.collar;
+  if (total == null) return null;
+  if (total < base) return { under: true, base, list: [] };
+  let rem = (total - base) / 2;
+  const list = [];
+  for (const p of P.avail) while (rem >= p - 1e-9) { list.push(p); rem = Math.round((rem - p) * 1000) / 1000; }
+  const perSide = list.reduce((a, b) => a + b, 0);
+  return { list, rem, perSide, base, loaded: base + perSide * 2 };
+}
+function groupPlates(list) {
+  const out = [];
+  for (const p of list) { const last = out[out.length - 1]; if (last && last.p === p) last.n++; else out.push({ p, n: 1 }); }
+  return out;
+}
+// Small inline plate picture plus text, used on set rows and the dashboard.
+function plateLine(w, ghost) {
+  if (w == null) return '';
+  const r = loadBar(w);
+  if (r.under) return `<span class="pl-txt">Under the bar (${fmtW(r.base)} kg)</span>`;
+  if (!r.list.length) return `<span class="pl-txt">Empty bar</span>`;
+  const pics = r.list.map(p => `<i class="mp" style="--pc:${PLATE_STYLE[p].c};--ph:${PLATE_STYLE[p].h}%;--pw:${Math.max(3, PLATE_STYLE[p].t / 4)}px"></i>`).join('');
+  const txt = groupPlates(r.list).map(g => g.n > 1 ? `${fmtW(g.p)}×${g.n}` : fmtW(g.p)).join(' + ');
+  return `<span class="mps ${ghost ? 'ghost' : ''}">${pics}</span><span class="pl-txt">${txt} <em>per side${state.plates.collar ? ' + collars' : ''}</em>${r.rem ? ` <strong>${fmtW(r.rem)} short</strong>` : ''}</span>`;
+}
+function barViz(r) {
+  const list = r && !r.under ? r.list : [];
+  const units = list.reduce((a, p) => a + PLATE_STYLE[p].t, 0) + (state.plates.collar ? 10 : 0);
+  const k = Math.min(1.5, 118 / Math.max(units, 1));
+  const prev = ui.prevPlates;
+  const side = cls => list.map((p, i) => `<i class="plate ${prev[i] === p ? '' : 'in'}" style="--pc:${PLATE_STYLE[p].c};--h:${PLATE_STYLE[p].h}%;--w:${(PLATE_STYLE[p].t * k).toFixed(1)}px;--i:${i}"
+      title="${fmtW(p)} kg">${PLATE_STYLE[p].t * k >= 15 ? `<b>${fmtW(p)}</b>` : ''}</i>`).join('')
+    + (state.plates.collar ? `<i class="collar ${prev.collar ? '' : 'in'}" style="--i:${list.length}"></i>` : '');
+  ui.prevPlates = list.slice(); ui.prevPlates.collar = !!state.plates.collar;
+  return `<div class="barbell"><div class="side left"><i class="stop"></i>${side()}</div>
+    <div class="shaft"><span>${BARS[state.plates.bar]} bar</span></div>
+    <div class="side right"><i class="stop"></i>${side()}</div></div>`;
+}
+function plateSummary(r) {
+  const P = state.plates;
+  if (!r) return '<p class="hint">Enter a weight.</p>';
+  if (r.under) return `<p class="pt-warn">That's less than the bar${P.collar ? ' and collars' : ''} (${fmtW(r.base)} kg).</p>`;
+  const chips = groupPlates(r.list).map(g => `<span class="pchip"><i style="--pc:${PLATE_STYLE[g.p].c}"></i>${fmtW(g.p)} kg${g.n > 1 ? ` <b>× ${g.n}</b>` : ''}</span>`).join('');
+  return `<div class="pchips">${chips || '<span class="pchip">Just the bar</span>'}</div>
+    <p class="pt-math">Bar ${fmtW(P.bar)}${P.collar ? ` + collars ${fmtW(P.collar * 2)}` : ''} + plates ${fmtW(r.perSide * 2)} = <b>${fmtW(r.loaded)} kg</b> · ${fmtW(r.perSide)} kg per side</p>
+    ${r.rem ? `<p class="pt-warn">Can't make it exactly with your plates. Closest is ${fmtW(r.loaded)} kg.</p>` : ''}`;
+}
+function renderPlates(anim) {
+  const P = state.plates;
+  ui.prevPlates = [];
+  const r = loadBar(P.target);
+  const quick = ['sq', 'bp', 'dl'].filter(l => state.maxes[l]).map(l => `<div class="qrow"><span class="qlbl" style="--g: var(--${LIFT_DAY[l]}-grad)">${LIFTS[l]}</span>
+    <div class="qchips">${[50, 60, 70, 75, 80, 85, 90, 95, 100].map(pc => {
+      const w = round25(state.maxes[l] * pc / 100);
+      return `<button class="qchip" data-act="ptset" data-w="${w}">${pc}%<b>${fmtW(w)}</b></button>`;
+    }).join('')}</div></div>`).join('');
+  $('#plates').innerHTML = `
+    <section class="panel plate-hero">
+      <div class="pt-row">
+        <button class="step big" data-act="ptstep" data-d="-1" aria-label="Minus 2.5 kg">${ICON.minus}</button>
+        <label class="pt-w"><input id="pt-w" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" value="${fmtW(P.target)}" aria-label="Target weight in kg"><span>kg</span></label>
+        <button class="step big" data-act="ptstep" data-d="1" aria-label="Plus 2.5 kg">${ICON.plus}</button>
+      </div>
+      <div class="viz" id="viz">${barViz(r)}</div>
+      <div id="pt-out">${plateSummary(r)}</div>
+    </section>
+    <div class="cols">
+      <div class="panel"><h2>Quick load</h2>
+        ${quick ? `<p class="hint">Percent of your maxes, rounded to 2.5 kg.</p>${quick}` : '<p class="hint">Add your maxes in Setup and you\'ll get one tap buttons for 50% to 100% here.</p>'}</div>
+      <div class="panel"><h2>Bar and plates</h2>
+        <p class="hint sm">Bar</p>
+        <div class="seg">${Object.entries(BARS).map(([w, n]) => `<button class="${P.bar === +w ? 'on' : ''}" data-act="ptbar" data-w="${w}" aria-pressed="${P.bar === +w}">${n}</button>`).join('')}</div>
+        <p class="hint sm">Collars</p>
+        <div class="seg two">${[[0, 'None'], [2.5, '2.5 kg each']].map(([c, n]) => `<button class="${P.collar === c ? 'on' : ''}" data-act="ptcollar" data-c="${c}" aria-pressed="${P.collar === c}">${n}</button>`).join('')}</div>
+        <p class="hint sm">Plates you have (tap to turn off)</p>
+        <div class="ptogs">${PLATES.map(p => `<button class="ptog ${P.avail.includes(p) ? 'on' : ''}" data-act="ptavail" data-p="${p}" aria-pressed="${P.avail.includes(p)}">
+          <i style="--pc:${PLATE_STYLE[p].c}"></i>${fmtW(p)}</button>`).join('')}</div>
+      </div>
+    </div>`;
+  if (anim) stagger($('#plates'), '.panel');
+}
+function updatePlates() {
+  const r = loadBar(state.plates.target);
+  $('#viz').innerHTML = barViz(r);
+  $('#pt-out').innerHTML = plateSummary(r);
+}
+function setTarget(v, fromInput) {
+  state.plates.target = Math.max(0, Math.round(v * 100) / 100);
+  save();
+  if (!fromInput) $('#pt-w').value = fmtW(state.plates.target);
+  updatePlates();
+}
+
+/* ---------- Live dashboard ---------- */
+let lastT = 0;
+function computeLastT() {
+  let m = 0;
+  for (const L of Object.values(state.logs)) if (L && L.done && L.t > m) m = L.t;
+  return m;
+}
+const repsNum = r => parseInt(r, 10) || 0;
+function sessionInfo(d, w) {
+  let first = Infinity, last = 0, vol = 0, top = null;
+  for (const ex of state.program[d]) (ex.weeks[w] || []).forEach((s, i) => {
+    const L = state.logs[logKey(ex.id, w, i)];
+    if (!L || !L.done) return;
+    if (L.t) { first = Math.min(first, L.t); last = Math.max(last, L.t); }
+    if (L.weight) {
+      vol += L.weight * repsNum(s.reps);
+      if (!top || L.weight > top.w) top = { w: L.weight, reps: s.reps, name: ex.name };
+    }
+  });
+  return { first: first === Infinity ? null : first, last: last || null, vol, top };
+}
+function nextSet(d, w) {
+  for (const ex of state.program[d]) {
+    const sets = ex.weeks[w] || [];
+    for (let i = 0; i < sets.length; i++) {
+      const k = logKey(ex.id, w, i), L = state.logs[k] || {};
+      if (!L.done) return { ex, i, s: sets[i], k, n: sets.length, weight: L.weight != null ? L.weight : suggest(ex, sets[i]), typed: L.weight != null };
+    }
+  }
+  return null;
+}
+function estMaxes() {
+  const best = { sq: 0, bp: 0, dl: 0 };
+  for (const d of DAYS) for (const ex of state.program[d]) {
+    if (!LIFT_DAY[ex.lift]) continue;
+    ex.weeks.forEach((sets, w) => (sets || []).forEach((s, i) => {
+      const L = state.logs[logKey(ex.id, w, i)];
+      if (!L || !L.done || !L.weight) return;
+      const r = Math.max(1, repsNum(s.reps));
+      const e = r === 1 ? L.weight : L.weight * (1 + r / 30); // Epley
+      best[ex.lift] = Math.max(best[ex.lift], Math.round(e * 2) / 2);
+    }));
+  }
+  return best;
+}
+const mmss = ms => { const t = Math.floor(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+const hmm = ms => { const m = Math.floor(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`; };
+function sessionText() {
+  const info = sessionInfo(ui.day, state.week), c = dayCount(ui.day, state.week), now = Date.now();
+  if (!info.first) return 'Not started yet';
+  if (c.done < c.total && now - info.last < 30 * 60000) return `<i class="dot"></i>Live · ${hmm(now - info.first)}`;
+  return `${c.done === c.total ? 'Finished' : 'Trained'} in ${hmm(info.last - info.first)}`;
+}
+function ring(pct, size, sw, cls = '') {
+  const r = (size - sw) / 2, C = 2 * Math.PI * r;
+  return `<svg class="ring ${cls}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">
+    <circle class="ring-bg" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${sw}"/>
+    <circle class="ring-fg" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${sw}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${C * (1 - pct)}"/></svg>`;
+}
+function renderToday(anim) {
+  const d = ui.day, w = state.week, c = dayCount(d, w), pct = c.total ? c.done / c.total : 0;
+  const info = sessionInfo(d, w), nx = nextSet(d, w), em = estMaxes();
+  const isToday = DAY_META[d].dow === new Date().getDay();
+  document.body.dataset.day = d;
+  $('#today').innerHTML = `
+    <section class="hero" style="--g: var(--${d}-grad)">
+      <div class="ring-wrap">${ring(pct, 136, 12, 'big')}
+        <div class="ring-c"><b data-count="${c.done}">0</b><span>of ${c.total} sets</span></div></div>
+      <div class="hero-t">
+        <small>${isToday ? 'Today' : 'Up next'} · ${WEEKS[w]}</small>
+        <h2>${DAY_META[d].name}</h2>
+        <div class="live" data-live="session">${sessionText()}</div>
+        <button class="btn glass" data-act="tab" data-tab="train">${ICON.bolt}${c.done ? 'Back to workout' : 'Start workout'}</button>
+      </div>
+    </section>
+    <div class="wstrip">${DAYS.map(k => { const dc = dayCount(k, w); return `<button class="wday ${k === d ? 'on' : ''}" data-act="dashday" data-d="${k}" style="--c: var(--${k}); --g: var(--${k}-grad)" aria-pressed="${k === d}">
+      ${ring(dc.total ? dc.done / dc.total : 0, 46, 5, 'mini')}<span>${DAY_META[k].short}</span><small>${dc.done}/${dc.total}</small></button>`; }).join('')}</div>
+    <div class="stats">
+      <div class="stat"><small>Volume</small><b><span data-count="${Math.round(info.vol)}" data-fmt="int">0</span><i>kg</i></b></div>
+      <div class="stat"><small>Top set</small><b>${info.top ? `${fmtW(info.top.w)}<i>× ${esc(info.top.reps)}</i>` : '<i>None yet</i>'}</b></div>
+      <div class="stat rest"><small>Rest</small><b data-live="rest">0:00</b></div>
+    </div>
+    <section class="panel next">
+      ${nx ? `<small class="eyebrow">Next set</small>
+        <div class="next-h"><h2>${esc(nx.ex.name)}</h2><span class="chip">Set ${nx.i + 1} of ${nx.n}</span></div>
+        <div class="next-b"><div class="next-w"><b>${nx.weight != null ? fmtW(nx.weight) : '?'}</b><span>${nx.weight != null ? 'kg' : ''} ${nx.typed ? '' : nx.weight != null ? 'suggested' : 'pick a weight'}</span></div>
+          <div class="next-r"><b>${esc(nx.s.reps)}</b> reps${nx.s.p != null ? ` · <em>${fmtPct(nx.s.p)}</em>` : ''}</div></div>
+        ${LIFT_DAY[nx.ex.lift] && nx.weight != null ? `<div class="pl-line big">${plateLine(nx.weight)}</div>` : ''}
+        <div class="erow"><button class="btn primary grow" data-act="goto" data-k="${nx.k}">Go to set</button>
+          ${LIFT_DAY[nx.ex.lift] ? `<button class="btn grow" data-act="loadplates" data-w="${nx.weight != null ? nx.weight : ''}">${ICON.plate}Load plates</button>` : ''}</div>`
+      : `<small class="eyebrow">All done</small><h2>${c.total ? `${DAY_META[d].name} is finished. Nice work.` : 'Nothing planned.'}</h2>`}
+    </section>
+    <section class="panel"><h2>Estimated maxes</h2><p class="hint">From your best ticked set of each lift (Epley).</p>
+      <div class="emax">${['sq', 'bp', 'dl'].map(l => `<div class="emx" style="--g: var(--${LIFT_DAY[l]}-grad)"><small>${LIFTS[l]}</small>
+        <b>${em[l] ? `<span data-count="${em[l]}">0</span><i>kg</i>` : '<i>No sets yet</i>'}</b></div>`).join('')}</div>
+    </section>`;
+  const root = $('#today');
+  requestAnimationFrame(() => {
+    root.querySelectorAll('.ring-fg').forEach(c => c.style.strokeDashoffset = c.dataset.off);
+    countUp(root);
+  });
+  if (anim) stagger(root, '.hero, .wstrip, .stat, .panel');
+  tick();
+}
+
+/* ---------- Motion helpers ---------- */
+function stagger(root, sel = '.card') {
+  if (!root || reduceMotion.matches) return;
+  root.querySelectorAll(sel).forEach((el, i) => {
+    el.style.setProperty('--i', Math.min(i, 10));
+    el.classList.remove('rise'); void el.offsetWidth; el.classList.add('rise');
+  });
+}
+function countUp(root) {
+  root.querySelectorAll('[data-count]').forEach(el => {
+    const to = +el.dataset.count, int = el.dataset.fmt === 'int';
+    const out = v => int ? Math.round(v).toLocaleString() : fmtW(v);
+    if (reduceMotion.matches || !to) { el.textContent = out(to); return; }
+    const t0 = performance.now(), dur = 750;
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = k < 1 ? (int ? Math.round(to * e).toLocaleString() : String(Math.round(to * e))) : out(to);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+function celebrate() {
+  if (reduceMotion.matches) return;
+  const box = document.createElement('div');
+  box.className = 'confetti';
+  const cols = DAYS.flatMap(d => [`var(--${d}-a)`, `var(--${d}-b)`]);
+  for (let i = 0; i < 44; i++) {
+    const p = document.createElement('i');
+    p.style.cssText = `--x:${(Math.random() * 2 - 1) * 46}vw;--y:${-(18 + Math.random() * 26)}vh;--r:${Math.random() * 720 - 360}deg;--d:${Math.random() * 120}ms;background:${cols[i % cols.length]}`;
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 1900);
+}
+function tick() {
+  const now = Date.now(), since = now - lastT;
+  const pill = $('#rest');
+  const showPill = lastT && since < 15 * 60000 && ui.restHide !== lastT && ui.tab === 'train';
+  pill.hidden = !showPill;
+  document.body.classList.toggle('resting', !!showPill);
+  if (showPill) { $('b', pill).textContent = mmss(since); pill.classList.toggle('long', since > 180000); }
+  const r = $('[data-live="rest"]');
+  if (r && ui.tab === 'today') { r.textContent = lastT && since < 60 * 60000 ? mmss(since) : '0:00'; r.parentElement.classList.toggle('long', lastT && since > 180000 && since < 60 * 60000); }
+  const s = $('[data-live="session"]');
+  if (s && ui.tab === 'today') s.innerHTML = sessionText();
 }
 
 /* ---------- Setup view ---------- */
@@ -512,6 +802,7 @@ function restoreBackup() {
   try { data = JSON.parse(raw); } catch (e) { return toast('That doesn\'t look like a backup'); }
   if (!data || !data.program || !DAYS.every(d => Array.isArray(data.program[d]))) return toast('That doesn\'t look like a Baden Barbell backup');
   state = normalize(data);
+  lastT = computeLastT();
   save();
   applyTheme();
   renderSetup();
@@ -519,17 +810,22 @@ function restoreBackup() {
 }
 
 /* ---------- Tabs and toast ---------- */
+const TABS = ['today', 'train', 'plates', 'progress', 'setup'];
 function show(tab) {
   ui.tab = tab;
   disarm();
-  for (const t of ['train', 'progress', 'setup']) $('#' + t).hidden = t !== tab;
+  for (const t of TABS) $('#' + t).hidden = t !== tab;
   document.querySelectorAll('.tab').forEach(b => {
     const on = b.dataset.tab === tab;
     b.classList.toggle('on', on);
     b.setAttribute('aria-current', on ? 'page' : 'false');
   });
-  ({ train: renderTrain, progress: renderProgress, setup: renderSetup })[tab]();
+  $('.tabs').style.setProperty('--ti', TABS.indexOf(tab));
   window.scrollTo(0, 0);
+  const view = $('#' + tab);
+  if (!reduceMotion.matches) { view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); }
+  ({ today: renderToday, train: renderTrain, plates: renderPlates, progress: renderProgress, setup: renderSetup })[tab](true);
+  tick();
 }
 
 let toastT;
@@ -552,9 +848,33 @@ document.addEventListener('click', e => {
   if (act === 'swap') return openSheet('swap', b.closest('[data-ex]').dataset.ex);
   if (act === 'pick') return submitSheet(b.dataset.name);
   if (act === 'closesheet') return closeSheet();
-  if (act === 'week') { state.week = +b.dataset.w; save(); return renderTrain(); }
-  if (act === 'day') { ui.day = b.dataset.d; return renderTrain(); }
-  if (act === 'edit') { ui.edit = !ui.edit; return renderTrain(); }
+  if (act === 'week') { state.week = +b.dataset.w; save(); return renderTrain(true); }
+  if (act === 'day') { ui.day = b.dataset.d; return renderTrain(true); }
+  if (act === 'edit') { ui.edit = !ui.edit; return renderTrain(true); }
+  if (act === 'dashday') { ui.day = b.dataset.d; return renderToday(true); }
+  if (act === 'goto') {
+    show('train');
+    const row = $(`.set[data-k="${b.dataset.k}"]`);
+    if (row) {
+      row.scrollIntoView({ block: 'center', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+      row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+    }
+    return;
+  }
+  if (act === 'loadplates') { if (b.dataset.w) { state.plates.target = +b.dataset.w; save(); } return show('plates'); }
+  if (act === 'ptstep') {
+    const cur = parseW($('#pt-w').value);
+    return setTarget((cur == null ? state.plates.target : cur) + STEP * +b.dataset.d);
+  }
+  if (act === 'ptset') return setTarget(+b.dataset.w);
+  if (act === 'ptbar') { state.plates.bar = +b.dataset.w; save(); return renderPlates(); }
+  if (act === 'ptcollar') { state.plates.collar = +b.dataset.c; save(); return renderPlates(); }
+  if (act === 'ptavail') {
+    const p = +b.dataset.p, A = state.plates.avail;
+    state.plates.avail = A.includes(p) ? A.filter(x => x !== p) : PLATES.filter(x => A.includes(x) || x === p);
+    save(); return renderPlates();
+  }
+  if (act === 'resthide') { ui.restHide = lastT; return tick(); }
   if (act === 'editcard') {
     const id = b.closest('[data-ex]').dataset.ex;
     ui.edit = true; renderTrain();
@@ -571,7 +891,8 @@ document.addEventListener('click', e => {
     if (v == null) v = startWeight(row);
     else v = act === 'plus' ? v + STEP : Math.max(0, v - STEP);
     inp.value = fmtW(v);
-    return setLog(row.dataset.k, { weight: v });
+    setLog(row.dataset.k, { weight: v });
+    return refreshRowPlates(row);
   }
   if (act === 'check') {
     const row = b.closest('.set');
@@ -579,7 +900,13 @@ document.addEventListener('click', e => {
     row.classList.toggle('done', done);
     b.setAttribute('aria-pressed', done);
     if (done && navigator.vibrate) navigator.vibrate(12);
-    return setLog(row.dataset.k, { done });
+    setLog(row.dataset.k, { done });
+    if (done) {
+      if (ui.restHide) ui.restHide = 0;
+      const c = dayCount(ui.day, state.week);
+      if (c.total && c.done === c.total) { celebrate(); toast(`${DAY_META[ui.day].name} done. Nice work!`); }
+    }
+    return;
   }
 
   const card = b.closest('[data-ex]');
@@ -603,7 +930,7 @@ document.addEventListener('click', e => {
   if (act === 'restore') return restoreBackup();
   if (act === 'reset') {
     return confirmTap(b, 'Tap again to wipe everything', () => {
-      state = blank(); save(); applyTheme(); renderSetup(); toast('Everything reset');
+      state = blank(); lastT = 0; save(); applyTheme(); renderSetup(); toast('Everything reset');
     });
   }
 });
@@ -617,8 +944,10 @@ document.addEventListener('input', e => {
   if (t.id === 'sheet-name') return renderSugs(t.value);
   if (t.classList.contains('wt')) {
     const row = t.closest('.set');
-    return setLog(row.dataset.k, { weight: parseW(t.value) });
+    setLog(row.dataset.k, { weight: parseW(t.value) });
+    return refreshRowPlates(row);
   }
+  if (t.id === 'pt-w') { const v = parseW(t.value); if (v != null) setTarget(v, true); return; }
   if (t.dataset.max) {
     state.maxes[t.dataset.max] = parseW(t.value) || null;
     return save();
@@ -632,6 +961,7 @@ document.addEventListener('change', e => {
     t.value = v != null ? fmtW(v) : '';
     return;
   }
+  if (t.id === 'pt-w') { t.value = fmtW(state.plates.target); return; }
   if (!f) return;
   const found = findEx(t.closest('[data-ex]').dataset.ex);
   if (!found) return;
@@ -662,7 +992,7 @@ document.addEventListener('change', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.matches('input.wt, input.field') && e.target.id !== 'sheet-name') e.target.blur();
+  if (e.key === 'Enter' && e.target.matches('input.wt, input.field, #pt-w') && e.target.id !== 'sheet-name') e.target.blur();
 });
 
 /* ---------- Theme ---------- */
@@ -677,7 +1007,10 @@ darkMQ.addEventListener && darkMQ.addEventListener('change', applyTheme);
 
 /* ---------- Boot ---------- */
 applyTheme();
+lastT = computeLastT();
 show('train');
+setInterval(tick, 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
