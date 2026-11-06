@@ -56,7 +56,8 @@ function defaultProgram() {
 
 /* ---------- State ---------- */
 const clone = o => JSON.parse(JSON.stringify(o));
-const blank = () => ({ program: defaultProgram(), logs: {}, maxes: { sq: null, bp: null, dl: null }, week: 0 });
+const THEMES = ['dark', 'light', 'system'];
+const blank = () => ({ program: defaultProgram(), logs: {}, maxes: { sq: null, bp: null, dl: null }, week: 0, theme: 'dark' });
 
 function normalize(s) {
   const b = blank();
@@ -67,7 +68,8 @@ function normalize(s) {
     program,
     logs: s.logs && typeof s.logs === 'object' ? s.logs : {},
     maxes: Object.assign(b.maxes, s.maxes || {}),
-    week: [0, 1, 2, 3].includes(s.week) ? s.week : 0
+    week: [0, 1, 2, 3].includes(s.week) ? s.week : 0,
+    theme: THEMES.includes(s.theme) ? s.theme : 'dark'
   };
 }
 function load() {
@@ -143,7 +145,8 @@ const ICON = {
   up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>',
   down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
   edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
-  done: '<svg viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></svg>'
+  done: '<svg viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>'
 };
 
 /* ---------- Train view ---------- */
@@ -152,22 +155,25 @@ function renderTrain() {
   document.body.dataset.day = d;
   const cards = list.length
     ? list.map((ex, i) => ui.edit ? editCard(ex, i, list.length) : setCard(ex)).join('')
-    : `<div class="card empty">No exercises on this day yet.${ui.edit ? '' : ' Tap Edit exercises to add one.'}</div>`;
+    : `<div class="card empty">No exercises on this day yet.${ui.edit ? '' : ' Tap Edit to add one.'}</div>`;
 
   $('#train').innerHTML = `
     <div class="pills" role="group" aria-label="Week">
       ${WEEKS.map((n, i) => `<button class="pill ${i === w ? 'on' : ''}" data-act="week" data-w="${i}" aria-pressed="${i === w}">${n}</button>`).join('')}
     </div>
     <div class="days" role="group" aria-label="Day">
-      ${DAYS.map(k => `<button class="daybtn ${k === d ? 'on' : ''}" style="--c: var(--${k})" data-act="day" data-d="${k}" aria-pressed="${k === d}">
+      ${DAYS.map(k => `<button class="daybtn ${k === d ? 'on' : ''}" style="--c: var(--${k}); --g: var(--${k}-grad)" data-act="day" data-d="${k}" aria-pressed="${k === d}">
         <span class="dn">${DAY_META[k].short}</span><span class="dc" data-dc="${k}"></span></button>`).join('')}
     </div>
     <div class="dayhead">
-      <div><h2>${DAY_META[d].name}</h2><p>${WEEKS[w]} · ${DAY_META[d].note}</p></div>
-      <button class="btn ${ui.edit ? 'primary' : 'soft'}" data-act="edit">${ui.edit ? ICON.done + 'Done' : ICON.edit + 'Edit exercises'}</button>
+      <div><h2 class="grad-text">${DAY_META[d].name}</h2><p>${WEEKS[w]} · ${DAY_META[d].note}</p></div>
+      <button class="btn ${ui.edit ? 'primary' : 'soft'}" data-act="edit">${ui.edit ? ICON.done + 'Done' : ICON.edit + 'Edit'}</button>
     </div>
-    ${ui.edit ? `<div class="editbar"><label><input type="checkbox" data-act="weekonly" ${ui.weekOnly ? 'checked' : ''}>
-      Only change sets and reps in ${WEEKS[w]}</label></div>` : ''}
+    ${ui.edit ? `<div class="editbar">
+      <p>Change names, reps and percentages below. Reps and sets update all 4 weeks unless you tick the box. Percentages only change ${WEEKS[w]}.</p>
+      <label><input type="checkbox" data-act="weekonly" ${ui.weekOnly ? 'checked' : ''}>
+      Only change sets and reps in ${WEEKS[w]}</label></div>
+      <datalist id="ex-names">${exerciseNames().map(n => `<option value="${esc(n)}">`).join('')}</datalist>` : ''}
     <div class="cards">${cards}</div>
     ${ui.edit ? `<div class="efoot">
       <button class="btn primary block" data-act="addex">${ICON.plus}Add exercise</button>
@@ -191,10 +197,11 @@ function setCard(ex) {
       <button class="check" data-act="check" aria-pressed="${!!L.done}" aria-label="Set ${i + 1} done">${ICON.check}</button>
     </div>`;
   }).join('');
-  return `<article class="card" data-ex="${ex.id}">
+  return `<article class="card ${ex.lift !== 'none' ? 'main' : ''}" data-ex="${ex.id}">
     <div class="card-h"><h3>${esc(ex.name)}</h3>
       <span class="chip ${ex.lift !== 'none' ? 'lift' : ''}">${LIFTS[ex.lift] || 'Accessory'}</span>
-      <span class="count" data-cc="${ex.id}"></span></div>
+      <span class="count" data-cc="${ex.id}"></span>
+      <button class="pen" data-act="editcard" aria-label="Edit ${esc(ex.name)}">${ICON.pencil}</button></div>
     ${rows || '<div class="empty">No sets this week.</div>'}
   </article>`;
 }
@@ -203,7 +210,7 @@ function editCard(ex, i, n) {
   const w = state.week, sets = ex.weeks[w] || [];
   return `<article class="card edit" data-ex="${ex.id}">
     <div class="erow">
-      <input class="field grow" data-field="name" value="${esc(ex.name)}" aria-label="Exercise name">
+      <input class="field grow ename" data-field="name" list="ex-names" value="${esc(ex.name)}" aria-label="Exercise name" placeholder="Exercise name">
     </div>
     <div class="erow">
       <select class="field grow" data-field="lift" aria-label="Counts toward">
@@ -214,15 +221,28 @@ function editCard(ex, i, n) {
       <button class="btn danger" data-act="delex">Delete</button>
     </div>
     <div class="esets">
-      ${sets.map((s, j) => `<div class="eset"><span>Set ${j + 1}</span>
+      ${sets.length ? `<div class="eset ehead"><span>Set</span><span>Reps</span><span>% of max</span></div>` : ''}
+      ${sets.map((s, j) => `<div class="eset"><span>${j + 1}</span>
         <input class="field" data-field="reps" data-i="${j}" value="${esc(s.reps)}" aria-label="Set ${j + 1} reps">
-        <span class="${s.p != null ? 'pct' : ''}">${s.p != null ? fmtPct(s.p) : 'reps'}</span></div>`).join('') || '<div class="empty">No sets this week.</div>'}
+        <div class="pctwrap"><input class="field" data-field="pct" data-i="${j}" type="text" inputmode="decimal" autocomplete="off"
+          value="${s.p != null ? +(s.p * 100).toFixed(1) : ''}" placeholder="None" aria-label="Set ${j + 1} percent of max"></div></div>`).join('') || '<div class="empty">No sets this week.</div>'}
     </div>
     <div class="erow">
       <button class="btn grow" data-act="rmset" ${sets.length ? '' : 'disabled'}>${ICON.minus}Remove set</button>
       <button class="btn grow" data-act="addset">${ICON.plus}Add set</button>
     </div>
   </article>`;
+}
+
+const COMMON = ['Squat', 'Front Squat', 'Pause Squat', 'Bench Press', 'Pause Bench', 'Close Grip Bench', 'Deadlift', 'Deficit Deadlift',
+  'Romanian Deadlift', 'Overhead Press', 'Barbell Rows', 'Pendlay Rows', 'Chest Supported Row', 'Lat Pulldown', 'Pull Ups', 'Chin Ups',
+  'Incline DB Press', 'Dips', 'Leg Press', 'Leg Curls', 'Leg Extensions', 'Lunges', 'Hip Thrusts', 'Back Extensions', 'Lateral Raises',
+  'Rear Delt Flyes', 'Face Pulls', 'Barbell Curls', 'EZ Bar Curls', 'Hammer Curls', 'Skull Crushers', 'Tricep Pushdowns',
+  'Decline Tricep Press', 'Plank', 'Ab Wheel'];
+function exerciseNames() {
+  const set = new Set(COMMON);
+  for (const d of DAYS) for (const ex of state.program[d]) set.add(ex.name);
+  return [...set].sort();
 }
 
 function updateCounts() {
@@ -328,7 +348,8 @@ function chartSVG(weekTop) {
   const top = Math.ceil(maxV / tickStep) * tickStep;
   const y = v => T + (H - T - B) * (1 - v / top);
   const gw = (W - L - R) / 4, bw = Math.min(24, (gw - 18) / 3);
-  let g = '';
+  let g = `<defs>${lifts.map(l => `<linearGradient id="g-${l}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" style="stop-color: var(--${LIFT_DAY[l]}-b)"/><stop offset="1" style="stop-color: var(--${LIFT_DAY[l]}-a)"/></linearGradient>`).join('')}</defs>`;
   for (let v = 0; v <= top; v += tickStep) {
     g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11">${v}</text>`;
   }
@@ -337,7 +358,7 @@ function chartSVG(weekTop) {
     lifts.forEach((l, j) => {
       const x = gx + j * (bw + 4), v = o[l];
       if (v) {
-        g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="5" style="fill: var(--${LIFT_DAY[l]})"><title>${LIFTS[l]} ${WEEKS[w]}: ${fmtW(v)} kg</title></rect>`;
+        g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="6" fill="url(#g-${l})"><title>${LIFTS[l]} ${WEEKS[w]}: ${fmtW(v)} kg</title></rect>`;
         g += `<text class="val" x="${x + bw / 2}" y="${y(v) - 5}" text-anchor="middle">${fmtW(v)}</text>`;
       }
     });
@@ -349,15 +370,15 @@ function chartSVG(weekTop) {
 function renderProgress() {
   const { best, weekTop } = progressData();
   const total = best.sq + best.bp + best.dl;
-  const tile = (l) => `<div class="tile" style="--c: var(--${LIFT_DAY[l]})"><small>Best ${LIFTS[l].toLowerCase()}</small>
+  const tile = (l) => `<div class="tile" style="--g: var(--${LIFT_DAY[l]}-grad)"><small>Best ${LIFTS[l].toLowerCase()}</small>
     <b>${best[l] ? fmtW(best[l]) : '0'}<i>kg</i></b>
     <div class="sub">${state.maxes[l] ? `Max set to ${fmtW(state.maxes[l])} kg` : 'Heaviest set checked'}</div></div>`;
 
   const dayRows = DAYS.map(d => {
     let done = 0, tot = 0;
     const per = [0, 1, 2, 3].map(w => { const c = dayCount(d, w); done += c.done; tot += c.total; return c; });
-    return `<div class="dayrow" style="--c: var(--${d})">
-      <div class="dayrow-h"><b style="color: color-mix(in srgb, var(--${d}), var(--ink-mix) var(--ink-amt))">${DAY_META[d].name}</b>
+    return `<div class="dayrow" style="--c: var(--${d}); --g: var(--${d}-grad)">
+      <div class="dayrow-h"><b class="grad-text">${DAY_META[d].name}</b>
         <span class="n">${done}/${tot} sets</span></div>
       <div class="bar"><i style="width:${tot ? (done / tot) * 100 : 0}%"></i></div>
       <div class="weekdots">${per.map((c, w) => `<span class="chip">${w < 3 ? 'W' + (w + 1) : 'Deload'} ${c.done}/${c.total}</span>`).join('')}</div></div>`;
@@ -370,7 +391,7 @@ function renderProgress() {
     </div>
     <div class="cols">
       <div class="panel"><h2>Top weight per week</h2><p class="hint">Heaviest checked set for each lift.</p>
-        <div class="legend">${['sq', 'bp', 'dl'].map(l => `<span><i style="background: var(--${LIFT_DAY[l]})"></i>${LIFTS[l]}</span>`).join('')}</div>
+        <div class="legend">${['sq', 'bp', 'dl'].map(l => `<span><i style="background: var(--${LIFT_DAY[l]}-grad)"></i>${LIFTS[l]}</span>`).join('')}</div>
         ${chartSVG(weekTop)}</div>
       <div class="panel"><h2>Sets done per day</h2><p class="hint">Across all four weeks.</p>${dayRows}</div>
     </div>`;
@@ -384,7 +405,7 @@ function renderSetup() {
       <div class="panel"><h2>Starting maxes</h2>
         <p class="hint">Optional. If you set one, lifts with a percentage show a suggested weight in the box (rounded to 2.5 kg). Nothing gets filled in for you.</p>
         <div class="maxes">${['sq', 'bp', 'dl'].map(l => `<div class="maxrow">
-          <label for="max-${l}"><i style="background: var(--${LIFT_DAY[l]})"></i>${LIFTS[l]}</label>
+          <label for="max-${l}"><i style="background: var(--${LIFT_DAY[l]}-grad)"></i>${LIFTS[l]}</label>
           <div class="kgwrap"><input id="max-${l}" class="field" type="text" inputmode="decimal" autocomplete="off"
             data-max="${l}" value="${state.maxes[l] ? fmtW(state.maxes[l]) : ''}" placeholder="None"></div></div>`).join('')}</div>
       </div>
@@ -395,6 +416,10 @@ function renderSetup() {
           <textarea id="restore-text" class="field" placeholder="Paste a backup here" aria-label="Backup text"></textarea>
           <button class="btn block" data-act="restore">Restore from backup</button>
         </div>
+      </div>
+      <div class="panel"><h2>Theme</h2>
+        <p class="hint">Dark is the default. System follows your phone.</p>
+        <div class="seg" role="group" aria-label="Theme">${THEMES.map(t => `<button class="${state.theme === t ? 'on' : ''}" data-act="theme" data-theme="${t}" aria-pressed="${state.theme === t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
       </div>
       <div class="panel"><h2>Reset</h2>
         <p class="hint">Wipes every logged set, your maxes and any program edits.</p>
@@ -427,6 +452,7 @@ function restoreBackup() {
   if (!data || !data.program || !DAYS.every(d => Array.isArray(data.program[d]))) return toast('That doesn\'t look like a Baden Barbell backup');
   state = normalize(data);
   save();
+  applyTheme();
   renderSetup();
   toast('Backup restored');
 }
@@ -465,6 +491,14 @@ document.addEventListener('click', e => {
   if (act === 'week') { state.week = +b.dataset.w; save(); return renderTrain(); }
   if (act === 'day') { ui.day = b.dataset.d; return renderTrain(); }
   if (act === 'edit') { ui.edit = !ui.edit; return renderTrain(); }
+  if (act === 'editcard') {
+    const id = b.closest('[data-ex]').dataset.ex;
+    ui.edit = true; renderTrain();
+    const c = $(`[data-ex="${id}"]`);
+    if (c) c.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
+  if (act === 'theme') { state.theme = b.dataset.theme; save(); applyTheme(); return renderSetup(); }
   if (act === 'weekonly') { ui.weekOnly = b.checked; return; }
 
   if (act === 'plus' || act === 'minus') {
@@ -512,7 +546,7 @@ document.addEventListener('click', e => {
   if (act === 'restore') return restoreBackup();
   if (act === 'reset') {
     return confirmTap(b, 'Tap again to wipe everything', () => {
-      state = blank(); save(); renderSetup(); toast('Everything reset');
+      state = blank(); save(); applyTheme(); renderSetup(); toast('Everything reset');
     });
   }
 });
@@ -551,6 +585,17 @@ document.addEventListener('change', e => {
     if (!reps) { t.value = ex.weeks[state.week][i].reps; return; }
     for (const w of weeksToEdit()) if (ex.weeks[w] && ex.weeks[w][i]) ex.weeks[w][i].reps = reps;
   }
+  if (f === 'pct') {
+    const i = +t.dataset.i, set = ex.weeks[state.week][i];
+    const raw = t.value.trim().replace('%', '');
+    if (!raw) set.p = null;
+    else {
+      const v = parseW(raw);
+      if (v == null || v > 150) { t.value = set.p != null ? +(set.p * 100).toFixed(1) : ''; return toast('Enter a percentage like 82.5'); }
+      set.p = Math.round(v * 10) / 1000;
+      t.value = +(set.p * 100).toFixed(1);
+    }
+  }
   save();
 });
 
@@ -558,7 +603,18 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('input.wt, input.field')) e.target.blur();
 });
 
+/* ---------- Theme ---------- */
+const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const root = document.documentElement;
+  root.dataset.theme = state.theme;
+  const dark = state.theme === 'dark' || (state.theme === 'system' && darkMQ.matches);
+  $('meta[name="theme-color"]').content = dark ? '#07080f' : '#f3f4fb';
+}
+darkMQ.addEventListener && darkMQ.addEventListener('change', applyTheme);
+
 /* ---------- Boot ---------- */
+applyTheme();
 show('train');
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

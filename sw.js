@@ -1,5 +1,5 @@
 // Baden Barbell service worker. Bump VERSION when you change any app file.
-const VERSION = 'bb-v1';
+const VERSION = 'bb-v2';
 const SHELL = [
   './',
   './index.html',

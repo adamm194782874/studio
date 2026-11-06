@@ -1,15 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Baden Barbell</title>
   <meta name="description" content="Personal workout log">
-  <meta name="theme-color" content="#f4f5fa" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0c0e14" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#07080f">
+  <script>try{var t=(JSON.parse(localStorage.getItem('badenBarbell.v1'))||{}).theme;if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Baden Barbell">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body data-day="sun">
+  <div class="glow" aria-hidden="true"></div>
   <header class="top">
     <div class="top-in">
       <div class="brand">

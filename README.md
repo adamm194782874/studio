@@ -38,6 +38,14 @@ Then open http://localhost:8000.
 
 When you change any file, bump `VERSION` in `sw.js` (for example `bb-v2`). The app picks up the new files on the next open, and shows them the time after that.
 
+## Changing your program
+
+Tap **Edit** on any day, or the pencil on any exercise card. You can rename an exercise (with suggestions), change which lift it counts toward, change reps and percentages for each set, add or remove sets, reorder, delete and add exercises. Reps and sets change in all 4 weeks unless you tick "Only change sets and reps in this week". Percentages always change in the week you're looking at, so your weekly progression stays intact.
+
+## Theme
+
+Dark with gradients by default. Setup lets you switch to Light or System.
+
 ## Moving your data
 
 Setup has a **Copy backup** button. Paste the text somewhere safe, then on the other device paste it into the box and tap **Restore from backup**.
